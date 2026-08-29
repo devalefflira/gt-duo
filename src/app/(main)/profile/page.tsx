@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { 
   Lock, 
   Menu, 
-  Plus, 
   Grid, 
   History, 
   Award, 
@@ -27,10 +26,14 @@ import { cn } from '@/lib/utils';
 interface UserProfile {
   id: string;
   full_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   username: string;
   avatar_url?: string | null;
   bio?: string | null;
   is_private: boolean;
+  pronouns?: string[];
+  show_pronouns_on_profile?: boolean;
 }
 
 interface PartnerProfile {
@@ -158,13 +161,15 @@ export default function ProfilePage() {
     );
   }
 
+  const displayName = profile.first_name 
+    ? `${profile.first_name} ${profile.last_name || ''}`.trim() 
+    : profile.full_name;
+
   return (
     <div className="mx-auto flex max-w-md flex-col px-5 pt-4 text-white">
       {/* 1. Header do Topo */}
       <div className="flex items-center justify-between py-2">
-        <button className="rounded-full p-2 text-gray-300 hover:bg-gray-800">
-          <Plus size={22} />
-        </button>
+        <div className="w-8" />
 
         <div className="flex items-center gap-1.5 text-base font-bold tracking-tight">
           {profile.is_private && <Lock size={15} className="text-gray-400" />}
@@ -180,7 +185,7 @@ export default function ProfilePage() {
       </div>
 
       {showSettings && (
-        <div className="mt-2 rounded-2xl bg-[#1d222d] p-3 shadow-xl border border-gray-800 animate-in fade-in slide-in-from-top-2">
+        <div className="mt-2 rounded-2xl bg-[#1d222d] p-3 shadow-xl border border-gray-800">
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors"
@@ -191,11 +196,11 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 2. Avatar Limpo e Contadores */}
+      {/* 2. Avatar e Contadores */}
       <div className="mt-5 flex items-center justify-between">
         <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5 shadow-lg">
           <div className="flex h-full w-full items-center justify-center rounded-full bg-[#161920] font-bold text-xl text-blue-400">
-            {profile.full_name?.charAt(0).toUpperCase() || 'U'}
+            {displayName.charAt(0).toUpperCase()}
           </div>
         </div>
 
@@ -215,9 +220,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 3. Bio & Vínculo com Ícone de Elo/Corrente */}
+      {/* 3. Nome, Pronomes, Bio e Vínculo */}
       <div className="mt-4 flex flex-col">
-        <h2 className="text-sm font-bold text-white">{profile.full_name}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-white">{displayName}</h2>
+          {profile.show_pronouns_on_profile && profile.pronouns && profile.pronouns.length > 0 && (
+            <span className="text-xs text-gray-400">({profile.pronouns.join('/')})</span>
+          )}
+        </div>
         <p className="mt-1 text-xs text-gray-300 leading-relaxed">{profile.bio}</p>
 
         <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-blue-400">
@@ -237,7 +247,10 @@ export default function ProfilePage() {
 
       {/* 4. Botões de Ação */}
       <div className="mt-5 flex items-center gap-2">
-        <button className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all">
+        <button 
+          onClick={() => router.push('/profile/edit')}
+          className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all"
+        >
           Editar perfil
         </button>
         <button className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all">
@@ -248,7 +261,7 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* 5. Abas de Conteúdo */}
+      {/* 5. Abas */}
       <div className="mt-6 flex border-b border-gray-800">
         <button
           onClick={() => setActiveTab('habits')}

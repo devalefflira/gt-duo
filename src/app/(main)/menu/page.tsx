@@ -39,8 +39,8 @@ export default function MenuHubPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">MENU</h1>
-          <p className="text-xs font-semibold text-gray-400">Super App do Casal & Amigos</p>
+          <h1 className="text-2xl font-black tracking-tight">Apps</h1>
+          <p className="text-xs font-semibold text-gray-400">Você no Controle</p>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e222b] text-blue-500">
           <LayoutGrid size={20} />
