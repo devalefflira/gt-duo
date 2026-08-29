@@ -2,20 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Lock,
-  Menu,
-  Plus,
-  Grid,
-  History,
-  Award,
-  UserPlus,
-  LogOut,
-  HeartHandshake,
-  Flame,
-  CheckCircle2,
+import { 
+  Lock, 
+  Menu, 
+  Plus, 
+  Grid, 
+  History, 
+  Award, 
+  UserPlus, 
+  LogOut, 
+  Link2, 
+  Flame, 
+  CheckCircle2, 
   Dumbbell,
-  Clock,
   Sparkles,
   Trophy
 } from 'lucide-react';
@@ -31,7 +30,6 @@ interface UserProfile {
   username: string;
   avatar_url?: string | null;
   bio?: string | null;
-  status_note?: string | null;
   is_private: boolean;
 }
 
@@ -47,7 +45,7 @@ export default function ProfilePage() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [activeTab, setActiveTab] = useState<'habits' | 'timeline' | 'achievements'>('habits');
-
+  
   const [habits, setHabits] = useState<Habit[]>([]);
   const [recentLogs, setRecentLogs] = useState<(HabitLog & { habit_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +66,6 @@ export default function ProfilePage() {
       return;
     }
 
-    // 1. Carregar perfil do usuário
     const { data: userProfile } = await supabase
       .from('profiles')
       .select('*')
@@ -78,18 +75,15 @@ export default function ProfilePage() {
     if (userProfile) {
       setProfile(userProfile);
     } else {
-      // Fallback caso o trigger ainda não tenha populado
       setProfile({
         id: user.id,
         full_name: user.user_metadata?.full_name || 'Usuário',
         username: user.user_metadata?.username || 'usuario',
         bio: 'Construindo hábitos sólidos todos os dias.',
-        status_note: 'Focado no progresso',
         is_private: true,
       });
     }
 
-    // 2. Carregar vínculo com parceiro(a) via maybeSingle()
     const { data: coupleData } = await supabase
       .from('couples')
       .select('partner_one_id, partner_two_id')
@@ -108,7 +102,6 @@ export default function ProfilePage() {
       }
     }
 
-    // 3. Contadores de Seguidores / Seguindo
     const { count: followers } = await supabase
       .from('follows')
       .select('*', { count: 'exact', head: true })
@@ -124,7 +117,6 @@ export default function ProfilePage() {
     setFollowersCount(followers || 0);
     setFollowingCount(following || 0);
 
-    // 4. Hábitos Ativos
     const { data: userHabits } = await supabase
       .from('habits')
       .select('*')
@@ -133,7 +125,6 @@ export default function ProfilePage() {
 
     if (userHabits) setHabits(userHabits);
 
-    // 5. Linha do Tempo (Últimos Check-ins)
     const { data: logs } = await supabase
       .from('habit_logs')
       .select('*, habits(title)')
@@ -180,7 +171,7 @@ export default function ProfilePage() {
           <span>@{profile.username || 'usuario'}</span>
         </div>
 
-        <button
+        <button 
           onClick={() => setShowSettings(!showSettings)}
           className="rounded-full p-2 text-gray-300 hover:bg-gray-800"
         >
@@ -188,7 +179,6 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* Menu de Configurações Dropdown */}
       {showSettings && (
         <div className="mt-2 rounded-2xl bg-[#1d222d] p-3 shadow-xl border border-gray-800 animate-in fade-in slide-in-from-top-2">
           <button
@@ -201,26 +191,14 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 2. Cabeçalho com Avatar, Nota de Status e Contadores */}
+      {/* 2. Avatar Limpo e Contadores */}
       <div className="mt-5 flex items-center justify-between">
-        {/* Avatar com Balão de Status */}
-        <div className="relative">
-          {profile.status_note && (
-            <div className="absolute -top-7 -left-1 max-w-[120px] truncate rounded-xl bg-[#1e222b] px-2.5 py-1 text-[10px] font-medium text-gray-300 shadow-md border border-gray-700">
-              {profile.status_note}
-            </div>
-          )}
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5 shadow-lg">
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-[#161920] font-bold text-xl text-blue-400">
-              {profile.full_name?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <button className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow-md">
-              <Plus size={14} strokeWidth={3} />
-            </button>
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5 shadow-lg">
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-[#161920] font-bold text-xl text-blue-400">
+            {profile.full_name?.charAt(0).toUpperCase() || 'U'}
           </div>
         </div>
 
-        {/* Contadores */}
         <div className="flex flex-1 justify-around pl-4 text-center">
           <div>
             <span className="block text-base font-extrabold text-white">{habits.length}</span>
@@ -237,14 +215,13 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 3. Bio & Selo do Vínculo Duo */}
+      {/* 3. Bio & Vínculo com Ícone de Elo/Corrente */}
       <div className="mt-4 flex flex-col">
         <h2 className="text-sm font-bold text-white">{profile.full_name}</h2>
         <p className="mt-1 text-xs text-gray-300 leading-relaxed">{profile.bio}</p>
 
-        {/* Tag do Parceiro(a) com Ícone de Aliança */}
-        <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-blue-400">
-          <span className="text-sm">💍</span>
+        <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-blue-400">
+          <Link2 size={16} className="text-blue-400" />
           {partner ? (
             <span className="hover:underline cursor-pointer">@{partner.username}</span>
           ) : (
@@ -258,7 +235,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 4. Botões de Ação Rápida */}
+      {/* 4. Botões de Ação */}
       <div className="mt-5 flex items-center gap-2">
         <button className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all">
           Editar perfil
@@ -271,7 +248,7 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* 5. Abas de Conteúdo (Grid de Hábitos / Timeline / Conquistas) */}
+      {/* 5. Abas de Conteúdo */}
       <div className="mt-6 flex border-b border-gray-800">
         <button
           onClick={() => setActiveTab('habits')}
@@ -313,9 +290,8 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* 6. Conteúdo das Abas */}
-      <div className="mt-4 flex flex-col gap-3">
-        {/* Aba 1: Hábitos Ativos */}
+      {/* 6. Listagens */}
+      <div className="mt-4 flex flex-col gap-3 pb-8">
         {activeTab === 'habits' && (
           habits.length === 0 ? (
             <div className="py-12 text-center text-xs text-gray-500">Nenhum hábito cadastrado ainda.</div>
@@ -348,7 +324,6 @@ export default function ProfilePage() {
           )
         )}
 
-        {/* Aba 2: Linha do Tempo de Check-ins */}
         {activeTab === 'timeline' && (
           recentLogs.length === 0 ? (
             <div className="py-12 text-center text-xs text-gray-500">Nenhum check-in recente registrado.</div>
@@ -377,7 +352,6 @@ export default function ProfilePage() {
           )
         )}
 
-        {/* Aba 3: Conquistas e Medalhas */}
         {activeTab === 'achievements' && (
           <div className="grid grid-cols-3 gap-3 pt-2">
             <div className="flex flex-col items-center rounded-2xl bg-[#1a1e27] p-4 text-center border border-gray-800">

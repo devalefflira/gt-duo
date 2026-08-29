@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Map, Users, Flame, User } from 'lucide-react';
+import { LayoutGrid, CalendarCheck, Users, Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'HOJE', href: '/', icon: Calendar },
-    { label: 'JORNADA', href: '/journey', icon: Map },
+    { label: 'MENU', href: '/menu', icon: LayoutGrid },
+    { label: 'HÁBITO', href: '/', icon: CalendarCheck },
     { label: 'DUO', href: '/duo', icon: Users },
     { label: 'GRUPO', href: '/group', icon: Flame },
     { label: 'EU', href: '/profile', icon: User },
