@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
+  Bell,
   Lock, 
   Menu, 
   Grid, 
@@ -15,13 +16,20 @@ import {
   CheckCircle2, 
   Dumbbell,
   Sparkles,
-  Trophy
+  Trophy,
+  MessageSquare,
+  CalendarPlus,
+  BarChart2,
+  FileText,
+  X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Habit, HabitLog } from '@/core/habits/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { UserSearchModal } from '@/components/UserSearchModal';
+import { ShareProfileModal } from '@/components/ShareProfileModal';
 
 interface UserProfile {
   id: string;
@@ -47,12 +55,17 @@ export default function ProfilePage() {
   const [partner, setPartner] = useState<PartnerProfile | null>(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [activeTab, setActiveTab] = useState<'habits' | 'timeline' | 'achievements'>('habits');
   
   const [habits, setHabits] = useState<Habit[]>([]);
   const [recentLogs, setRecentLogs] = useState<(HabitLog & { habit_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Estados dos Modais e Menus
   const [showSettings, setShowSettings] = useState(false);
+  const [searchModalMode, setSearchModalMode] = useState<'partner' | 'follow' | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -117,8 +130,15 @@ export default function ProfilePage() {
       .eq('follower_id', user.id)
       .eq('status', 'accepted');
 
+    const { count: notifications } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', user.id)
+      .eq('status', 'pending');
+
     setFollowersCount(followers || 0);
     setFollowingCount(following || 0);
+    setUnreadNotifications(notifications || 0);
 
     const { data: userHabits } = await supabase
       .from('habits')
@@ -167,31 +187,69 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col px-5 pt-4 text-white">
-      {/* 1. Header do Topo */}
+      {/* 1. Top Bar com Sino de Notificações, @ e Menu Hambúrguer */}
       <div className="flex items-center justify-between py-2">
-        <div className="w-8" />
+        {/* Sino de Notificações */}
+        <button 
+          onClick={() => router.push('/notifications')}
+          className="relative rounded-full p-2 text-gray-300 hover:bg-gray-800 transition-colors"
+        >
+          <Bell size={21} />
+          {unreadNotifications > 0 && (
+            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
+              {unreadNotifications}
+            </span>
+          )}
+        </button>
 
+        {/* Identificador com Cadeado */}
         <div className="flex items-center gap-1.5 text-base font-bold tracking-tight">
           {profile.is_private && <Lock size={15} className="text-gray-400" />}
           <span>@{profile.username || 'usuario'}</span>
         </div>
 
+        {/* Menu Hambúrguer */}
         <button 
           onClick={() => setShowSettings(!showSettings)}
-          className="rounded-full p-2 text-gray-300 hover:bg-gray-800"
+          className="rounded-full p-2 text-gray-300 hover:bg-gray-800 transition-colors"
         >
-          <Menu size={22} />
+          {showSettings ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
+      {/* Menu Hambúrguer Expandido */}
       {showSettings && (
-        <div className="mt-2 rounded-2xl bg-[#1d222d] p-3 shadow-xl border border-gray-800">
+        <div className="mt-2 flex flex-col gap-1 rounded-3xl bg-[#1d222d] p-3 shadow-2xl border border-gray-800 animate-in fade-in slide-in-from-top-2">
+          {[
+            { label: 'Enviar Mensagem', icon: MessageSquare, route: '/messages' },
+            { label: 'Criar Evento', icon: CalendarPlus, route: '/events/create' },
+            { label: 'Criar Enquete', icon: BarChart2, route: '/polls/create' },
+            { label: 'Publicações', icon: FileText, route: '/posts' },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                onClick={() => {
+                  setShowSettings(false);
+                  router.push(item.route);
+                }}
+                className="flex items-center gap-3 rounded-2xl px-3.5 py-3 text-xs font-semibold text-gray-300 hover:bg-[#252a36] hover:text-white transition-all text-left"
+              >
+                <Icon size={16} className="text-blue-400" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+
+          <div className="my-1 border-t border-gray-800" />
+
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors text-left"
           >
             <LogOut size={16} />
-            Encerrar Sessão
+            <span>Encerrar Sessão</span>
           </button>
         </div>
       )}
@@ -220,7 +278,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 3. Nome, Pronomes, Bio e Vínculo */}
+      {/* 3. Nome, Pronomes, Bio e Vínculo com Parceiro */}
       <div className="mt-4 flex flex-col">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-bold text-white">{displayName}</h2>
@@ -230,13 +288,14 @@ export default function ProfilePage() {
         </div>
         <p className="mt-1 text-xs text-gray-300 leading-relaxed">{profile.bio}</p>
 
+        {/* Vínculo com Parceiro: abre modal de busca */}
         <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-blue-400">
           <Link2 size={16} className="text-blue-400" />
           {partner ? (
             <span className="hover:underline cursor-pointer">@{partner.username}</span>
           ) : (
             <button
-              onClick={() => router.push('/duo')}
+              onClick={() => setSearchModalMode('partner')}
               className="font-medium text-gray-400 hover:text-blue-400 transition-colors"
             >
               Conectar com seu parceiro(a)...
@@ -253,10 +312,16 @@ export default function ProfilePage() {
         >
           Editar perfil
         </button>
-        <button className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all">
+        <button 
+          onClick={() => setShowShareModal(true)}
+          className="flex-1 rounded-xl bg-[#1e222b] py-2.5 text-center text-xs font-bold text-white hover:bg-[#252a36] transition-all"
+        >
           Compartilhar perfil
         </button>
-        <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e222b] text-gray-300 hover:bg-[#252a36] transition-all">
+        <button 
+          onClick={() => setSearchModalMode('follow')}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e222b] text-gray-300 hover:bg-[#252a36] transition-all"
+        >
           <UserPlus size={16} />
         </button>
       </div>
@@ -393,6 +458,23 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Modais de Busca e Compartilhamento */}
+      {searchModalMode && (
+        <UserSearchModal
+          isOpen={true}
+          mode={searchModalMode}
+          onClose={() => setSearchModalMode(null)}
+        />
+      )}
+
+      {showShareModal && (
+        <ShareProfileModal
+          isOpen={true}
+          username={profile.username}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 }
