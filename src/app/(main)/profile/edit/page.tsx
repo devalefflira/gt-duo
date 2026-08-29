@@ -2,7 +2,17 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Search, Check, Eye, EyeOff } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Search, 
+  Check, 
+  Eye, 
+  EyeOff, 
+  BookOpen, 
+  Film, 
+  Music, 
+  Dumbbell 
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { differenceInYears } from 'date-fns';
 
@@ -28,25 +38,93 @@ const COMMUNITY_OPTIONS = [
   'Prefiro não dizer',
 ];
 
-const ALL_INTERESTS = [
-  'Desenvolvimento Pessoal',
-  'Biografia / Memórias',
-  'Clássicos da Literatura',
-  'Contos e Poesia',
-  'Distopia',
-  'Fantasia',
-  'Ficção Científica',
-  'História / Política',
-  'Mangás / HQs / Graphic Novels',
-  'Negócios / Finanças',
-  'Não-Ficção Geral',
-  'Romance',
-  'Suspense / Thriller / Policial',
-  'Terror / Horror',
-  'Young Adult (Jovem Adulto)',
+// Categorias organizadas de afinidades
+const INTEREST_CATEGORIES = [
+  {
+    id: 'literature',
+    label: 'Literários',
+    icon: BookOpen,
+    items: [
+      'Desenvolvimento Pessoal',
+      'Biografia / Memórias',
+      'Clássicos da Literatura',
+      'Contos e Poesia',
+      'Distopia',
+      'Fantasia',
+      'Ficção Científica',
+      'História / Política',
+      'Mangás / HQs / Graphic Novels',
+      'Negócios / Finanças',
+      'Não-Ficção Geral',
+      'Romance',
+      'Suspense / Thriller / Policial',
+      'Terror / Horror',
+      'Young Adult (Jovem Adulto)',
+    ],
+  },
+  {
+    id: 'movies_series',
+    label: 'Filmes & Séries',
+    icon: Film,
+    items: [
+      'Ação e Aventura',
+      'Animação / Anime',
+      'Comédia',
+      'Documentários',
+      'Drama',
+      'Ficção Científica',
+      'Mistério / Investigação',
+      'Romance / Comédia Romântica',
+      'Séries Médicas / Jurídicas',
+      'Suspense Psicológico',
+      'Terror Sobrenatural / Slasher',
+      'True Crime',
+    ],
+  },
+  {
+    id: 'music',
+    label: 'Músicas',
+    icon: Music,
+    items: [
+      'Acústico / Folk',
+      'Eletrônica / House / Techno',
+      'Gospel / Cristão',
+      'Hip Hop / Trap',
+      'Indie / Alternativo',
+      'Jazz / Blues',
+      'MPB / Bossa Nova',
+      'Pagode / Samba',
+      'Pop Internacional',
+      'Pop Nacional',
+      'R&B / Soul',
+      'Rock Clássico / Metal',
+      'Sertanejo',
+    ],
+  },
+  {
+    id: 'sports',
+    label: 'Esportes',
+    icon: Dumbbell,
+    items: [
+      'Artes Marciais / Lutas',
+      'Basquete',
+      'Beach Tennis',
+      'Caminhada ao Ar Livre',
+      'Ciclismo / Bike',
+      'Crossfit',
+      'Corrida de Rua',
+      'Futebol',
+      'Musculação / Hipertrofia',
+      'Natação',
+      'Pilates',
+      'Tênis',
+      'Vôlei',
+      'Yoga',
+    ],
+  },
 ];
 
-const MAX_INTERESTS = 5;
+const MAX_INTERESTS_PER_CATEGORY = 5;
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -55,7 +133,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Campos Básicos
+  // Informações Básicas
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
@@ -72,7 +150,8 @@ export default function EditProfilePage() {
   const [selectedCommunity, setSelectedCommunity] = useState<string[]>([]);
   const [showCommunity, setShowCommunity] = useState(false);
 
-  // Afinidades e Interesses
+  // Afinidades por Abas
+  const [activeCategory, setActiveCategory] = useState('literature');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [searchInterest, setSearchInterest] = useState('');
 
@@ -116,7 +195,6 @@ export default function EditProfilePage() {
     setLoading(false);
   };
 
-  // Cálculo de Idade
   const calculatedAge = useMemo(() => {
     if (!birthDate) return null;
     const date = new Date(birthDate);
@@ -124,13 +202,23 @@ export default function EditProfilePage() {
     return differenceInYears(new Date(), date);
   }, [birthDate]);
 
-  // Filtro de afinidades com barra de busca
-  const filteredInterests = useMemo(() => {
-    if (!searchInterest.trim()) return ALL_INTERESTS;
-    return ALL_INTERESTS.filter((item) =>
+  // Categoria ativa atual
+  const currentCategoryData = useMemo(() => {
+    return INTEREST_CATEGORIES.find((c) => c.id === activeCategory) || INTEREST_CATEGORIES[0];
+  }, [activeCategory]);
+
+  // Itens filtrados pela busca
+  const filteredCategoryItems = useMemo(() => {
+    if (!searchInterest.trim()) return currentCategoryData.items;
+    return currentCategoryData.items.filter((item) =>
       item.toLowerCase().includes(searchInterest.toLowerCase())
     );
-  }, [searchInterest]);
+  }, [currentCategoryData, searchInterest]);
+
+  // Quantidade selecionada dentro da categoria ativa
+  const selectedCountInCurrentCategory = useMemo(() => {
+    return selectedInterests.filter((item) => currentCategoryData.items.includes(item)).length;
+  }, [selectedInterests, currentCategoryData]);
 
   const togglePronoun = (item: string) => {
     if (item === 'Prefiro não dizer') {
@@ -159,7 +247,7 @@ export default function EditProfilePage() {
       if (prev.includes(interest)) {
         return prev.filter((i) => i !== interest);
       }
-      if (prev.length >= MAX_INTERESTS) return prev;
+      if (selectedCountInCurrentCategory >= MAX_INTERESTS_PER_CATEGORY) return prev;
       return [...prev, interest];
     });
   };
@@ -207,9 +295,10 @@ export default function EditProfilePage() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#121418] px-5 py-6 text-white pb-32">
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-800 pb-4">
         <button
+          type="button"
           onClick={() => router.back()}
           className="flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-white"
         >
@@ -227,7 +316,7 @@ export default function EditProfilePage() {
       </div>
 
       <form onSubmit={handleSave} className="mt-6 flex flex-col gap-6">
-        {/* Bloco 1: Dados Básicos */}
+        {/* Bloco 1: Informações Básicas */}
         <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">Informações Básicas</h2>
 
@@ -238,7 +327,7 @@ export default function EditProfilePage() {
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Ex: Jaciane"
+              placeholder="Seu primeiro nome"
               className="mt-1 w-full rounded-2xl bg-[#232834] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -249,7 +338,7 @@ export default function EditProfilePage() {
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              placeholder="Ex: Lins"
+              placeholder="Sobrenome"
               className="mt-1 w-full rounded-2xl bg-[#232834] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -260,12 +349,11 @@ export default function EditProfilePage() {
               rows={2}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Conte um pouco sobre sua jornada..."
+              placeholder="Conte um pouco sobre sua rotina..."
               className="mt-1 w-full rounded-2xl bg-[#232834] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
-          {/* Data de Nascimento e Idade Privada */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
               <label className="flex items-center gap-1 text-xs font-semibold text-gray-400">
@@ -292,11 +380,10 @@ export default function EditProfilePage() {
           </div>
         </div>
 
-        {/* Bloco 2: Identidade, Pronomes e Comunidade */}
+        {/* Bloco 2: Identidade & Visibilidade */}
         <div className="flex flex-col gap-5 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">Identidade & Visibilidade</h2>
 
-          {/* Identidade de Gênero */}
           <div>
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-gray-400">Identidade de Gênero</label>
@@ -331,7 +418,6 @@ export default function EditProfilePage() {
             )}
           </div>
 
-          {/* Pronomes */}
           <div>
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-gray-400">Pronomes</label>
@@ -365,7 +451,6 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Comunidade / Autodeclaração */}
           <div>
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-gray-400">Comunidade / Autodeclaração</label>
@@ -400,23 +485,55 @@ export default function EditProfilePage() {
           </div>
         </div>
 
-        {/* Bloco 3: Afinidades e Interesses */}
+        {/* Bloco 3: Afinidades com Abas por Categoria */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">Afinidades & Gostos</h2>
             <span className="text-[11px] font-bold text-gray-400">
-              {selectedInterests.length}/{MAX_INTERESTS} selecionados
+              {selectedCountInCurrentCategory}/{MAX_INTERESTS_PER_CATEGORY} nesta categoria
             </span>
           </div>
-          <p className="text-[11px] text-gray-400">
-            Usado para sugerir conexões com interesses mútuos. Escolha até 5 itens.
-          </p>
 
-          {/* Barra de Busca Interna */}
-          <div className="relative mt-1">
+          {/* Abas das Categorias */}
+          <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {INTEREST_CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const isActive = activeCategory === cat.id;
+              const categorySelectedCount = selectedInterests.filter((item) =>
+                cat.items.includes(item)
+              ).length;
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    setSearchInterest('');
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-[11px] font-bold transition-all ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                      : 'bg-[#232834] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Icon size={14} />
+                  <span>{cat.label}</span>
+                  {categorySelectedCount > 0 && (
+                    <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[9px]">
+                      {categorySelectedCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Barra de Busca Contextual */}
+          <div className="relative mt-2">
             <input
               type="text"
-              placeholder="Buscar gênero ou interesse..."
+              placeholder={`Buscar em ${currentCategoryData.label}...`}
               value={searchInterest}
               onChange={(e) => setSearchInterest(e.target.value)}
               className="w-full rounded-2xl bg-[#232834] py-2.5 pl-9 pr-4 text-xs text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500"
@@ -424,22 +541,22 @@ export default function EditProfilePage() {
             <Search size={14} className="absolute left-3.5 top-3 text-gray-400" />
           </div>
 
-          {/* Chips de Seleção */}
-          <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto pt-1">
-            {filteredInterests.map((interest) => {
-              const isSelected = selectedInterests.includes(interest);
+          {/* Chips da Categoria Ativa */}
+          <div className="mt-2 flex flex-wrap gap-2 max-h-52 overflow-y-auto no-scrollbar pt-1">
+            {filteredCategoryItems.map((item) => {
+              const isSelected = selectedInterests.includes(item);
               return (
                 <button
-                  key={interest}
+                  key={item}
                   type="button"
-                  onClick={() => toggleInterest(interest)}
+                  onClick={() => toggleInterest(item)}
                   className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
                     isSelected
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                       : 'bg-[#232834] text-gray-300 hover:bg-[#2b3140]'
                   }`}
                 >
-                  <span>{interest}</span>
+                  <span>{item}</span>
                   {isSelected && <Check size={13} strokeWidth={3} />}
                 </button>
               );
