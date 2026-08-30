@@ -10,7 +10,8 @@ import {
   Check, 
   X, 
   HeartHandshake,
-  Trash2
+  Trash2,
+  Users
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,8 +22,9 @@ interface NotificationItem {
   id: string;
   sender_id: string;
   recipient_id: string;
-  type: 'partner_invite' | 'follow_request' | 'follow_accepted' | 'partner_accepted';
+  type: 'partner_invite' | 'follow_request' | 'follow_accepted' | 'partner_accepted' | 'bond_request' | 'bond_accepted';
   status: 'pending' | 'accepted' | 'rejected' | 'read';
+  metadata?: any;
   created_at: string;
   sender: {
     id: string;
@@ -65,7 +67,6 @@ export default function NotificationsPage() {
     setLoading(false);
   };
 
-  // Limpar todas as notificações recebidas
   const handleClearAll = async () => {
     if (notifications.length === 0) return;
     setClearing(true);
@@ -82,7 +83,12 @@ export default function NotificationsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    if (notification.type === 'partner_invite') {
+    if (notification.type === 'bond_request') {
+      const bondId = notification.metadata?.bond_id;
+      if (bondId) {
+        await supabase.rpc('accept_bond', { bond_id_param: bondId });
+      }
+    } else if (notification.type === 'partner_invite') {
       await supabase.rpc('accept_partner_invite', {
         sender_user_id: notification.sender_id,
       });
@@ -122,7 +128,12 @@ export default function NotificationsPage() {
   const handleReject = async (notification: NotificationItem) => {
     setProcessingId(notification.id);
 
-    if (notification.type === 'follow_request') {
+    if (notification.type === 'bond_request') {
+      const bondId = notification.metadata?.bond_id;
+      if (bondId) {
+        await supabase.from('bonds').delete().eq('id', bondId);
+      }
+    } else if (notification.type === 'follow_request') {
       await supabase
         .from('follows')
         .delete()
@@ -155,7 +166,6 @@ export default function NotificationsPage() {
 
         <h1 className="text-base font-bold">Notificações</h1>
 
-        {/* Botão Limpar Notificações */}
         {notifications.length > 0 ? (
           <button
             onClick={handleClearAll}
@@ -173,18 +183,14 @@ export default function NotificationsPage() {
       {/* Lista de Notificações */}
       <div className="mt-6 flex flex-col gap-3">
         {loading ? (
-          <div className="py-16 text-center text-xs text-gray-500">
-            Carregando notificações...
-          </div>
+          <div className="py-16 text-center text-xs text-gray-500">Carregando notificações...</div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#191c24] text-gray-500 mb-3 border border-gray-800">
               <Bell size={26} />
             </div>
             <h3 className="text-sm font-bold text-gray-300">Tudo limpo por aqui</h3>
-            <p className="mt-1 text-xs text-gray-500 max-w-[240px]">
-              Nenhuma notificação recente pendente.
-            </p>
+            <p className="mt-1 text-xs text-gray-500 max-w-[240px]">Nenhuma notificação recente pendente.</p>
           </div>
         ) : (
           notifications.map((item) => {
@@ -200,8 +206,8 @@ export default function NotificationsPage() {
                 key={item.id}
                 className={cn(
                   'flex flex-col gap-3 rounded-2xl p-4 transition-all border',
-                  isPending 
-                    ? 'bg-[#191c24] border-gray-800/80 shadow-md' 
+                  isPending
+                    ? 'bg-[#191c24] border-gray-800/80 shadow-md'
                     : 'bg-[#161920]/60 border-gray-800/40 opacity-75'
                 )}
               >
@@ -215,16 +221,21 @@ export default function NotificationsPage() {
 
                     <div>
                       <p className="text-xs font-semibold leading-snug">
-                        <span className="font-bold text-white">
-                          {item.sender?.full_name || 'Usuário'}
-                        </span>{' '}
+                        <span className="font-bold text-white">{item.sender?.full_name || 'Usuário'}</span>{' '}
                         <span className="text-gray-400">(@{item.sender?.username})</span>
                       </p>
 
-                      <p className="text-[11px] text-gray-300 mt-0.5">
-                        {item.type === 'partner_invite' && (
+                      <div className="text-[11px] text-gray-300 mt-0.5">
+                        {item.type === 'bond_request' && (
                           <span className="flex items-center gap-1 text-blue-400 font-medium">
-                            <Link2 size={12} /> Enviou um convite de parceiro(a) Duo
+                            <Link2 size={13} /> Solicitou vínculo de{' '}
+                            <strong className="text-white font-bold">{item.metadata?.subtype || 'Conexão'}</strong>
+                          </span>
+                        )}
+                        {item.type === 'bond_accepted' && (
+                          <span className="flex items-center gap-1 text-green-400 font-medium">
+                            <Users size={13} /> Aceitou seu vínculo de{' '}
+                            <strong>{item.metadata?.subtype || 'Conexão'}</strong> e começou a te seguir!
                           </span>
                         )}
                         {item.type === 'follow_request' && (
@@ -237,16 +248,9 @@ export default function NotificationsPage() {
                             <Check size={12} /> Aceitou sua solicitação para seguir
                           </span>
                         )}
-                        {item.type === 'partner_accepted' && (
-                          <span className="flex items-center gap-1 text-green-400 font-medium">
-                            <HeartHandshake size={12} /> Aceitou sua conexão de casal Duo!
-                          </span>
-                        )}
-                      </p>
+                      </div>
 
-                      <span className="mt-1 block text-[10px] text-gray-500">
-                        {timeAgo}
-                      </span>
+                      <span className="mt-1 block text-[10px] text-gray-500">{timeAgo}</span>
                     </div>
                   </div>
                 </div>
@@ -259,7 +263,7 @@ export default function NotificationsPage() {
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-50"
                     >
                       <Check size={14} strokeWidth={2.5} />
-                      <span>{isProcessing ? 'Processando...' : 'Confirmar'}</span>
+                      <span>{isProcessing ? 'Processando...' : 'Aceitar Vínculo'}</span>
                     </button>
 
                     <button
@@ -276,7 +280,7 @@ export default function NotificationsPage() {
                 {!isPending && item.status === 'accepted' && (
                   <div className="text-right">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
-                      <Check size={11} strokeWidth={3} /> Aceito
+                      <Check size={11} strokeWidth={3} /> Vínculo Ativo
                     </span>
                   </div>
                 )}

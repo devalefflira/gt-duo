@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Grid, History, Award, Link2 } from 'lucide-react';
+import { Grid, History, Award, Link2, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Habit, HabitLog } from '@/core/habits/types';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,6 @@ import { ProfileTimelineTab } from '@/components/profile/ProfileTimelineTab';
 import { ProfileAchievementsTab } from '@/components/profile/ProfileAchievementsTab';
 
 // Modais
-import { UserSearchModal } from '@/components/UserSearchModal';
 import { ShareProfileModal } from '@/components/ShareProfileModal';
 import { FollowersListModal } from '@/components/FollowersListModal';
 
@@ -34,15 +33,9 @@ interface UserProfile {
   show_pronouns_on_profile?: boolean;
 }
 
-interface PartnerProfile {
-  id: string;
-  full_name: string;
-  username: string;
-}
-
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [partner, setPartner] = useState<PartnerProfile | null>(null);
+  const [bondsCount, setBondsCount] = useState(0);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -52,8 +45,7 @@ export default function ProfilePage() {
   const [recentLogs, setRecentLogs] = useState<(HabitLog & { habit_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados dos Modais
-  const [searchModalMode, setSearchModalMode] = useState<'partner' | 'follow' | null>(null);
+  // Modais
   const [showShareModal, setShowShareModal] = useState(false);
   const [followModalTab, setFollowModalTab] = useState<'followers' | 'following' | null>(null);
 
@@ -72,7 +64,7 @@ export default function ProfilePage() {
       return;
     }
 
-    // 1. Carregar perfil do usuário logado
+    // 1. Perfil
     const { data: userProfile } = await supabase
       .from('profiles')
       .select('*')
@@ -91,32 +83,14 @@ export default function ProfilePage() {
       });
     }
 
-    // 2. Carregar vínculo de casal aceito (busca direta e bidirecional)
-    const { data: coupleData } = await supabase
-      .from('couples')
-      .select('partner_one_id, partner_two_id, status')
-      .or(`partner_one_id.eq.${user.id},partner_two_id.eq.${user.id}`)
-      .eq('status', 'accepted')
-      .maybeSingle();
+    // 2. Contagem de Vínculos Aceitos
+    const { count: bonds } = await supabase
+      .from('bonds')
+      .select('*', { count: 'exact', head: true })
+      .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
+      .eq('status', 'accepted');
 
-    if (coupleData) {
-      const partnerId =
-        coupleData.partner_one_id === user.id
-          ? coupleData.partner_two_id
-          : coupleData.partner_one_id;
-
-      if (partnerId) {
-        const { data: partnerData } = await supabase
-          .from('profiles')
-          .select('id, full_name, username')
-          .eq('id', partnerId)
-          .maybeSingle();
-
-        if (partnerData) setPartner(partnerData);
-      }
-    } else {
-      setPartner(null);
-    }
+    setBondsCount(bonds || 0);
 
     // 3. Contadores Sociais
     const { count: followers } = await supabase
@@ -184,14 +158,14 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col px-5 pt-4 text-white">
-      {/* 1. Top Bar */}
+      {/* 1. Header */}
       <ProfileHeader
         username={profile.username}
         isPrivate={profile.is_private}
         unreadNotifications={unreadNotifications}
       />
 
-      {/* 2. Avatar com Upload e Contadores */}
+      {/* 2. Avatar e Contadores */}
       <div className="mt-5 flex items-center justify-between">
         <ProfileAvatar
           userId={profile.id}
@@ -211,7 +185,7 @@ export default function ProfilePage() {
         />
       </div>
 
-      {/* 3. Identificação e Vínculo Conectado */}
+      {/* 3. Bio & Acesso aos Vínculos */}
       <div className="mt-4 flex flex-col">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-bold text-white">{displayName}</h2>
@@ -221,28 +195,26 @@ export default function ProfilePage() {
         </div>
         <p className="mt-1 text-xs text-gray-300 leading-relaxed">{profile.bio}</p>
 
-        {/* Exibição do Vínculo de Casal */}
-        <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-blue-400">
-          <Link2 size={16} className="text-blue-400" />
-          {partner ? (
-            <span className="text-blue-400 font-bold">
-              Conectado com <span className="underline">@{partner.username}</span>
+        {/* Linha de Vínculos Clicável */}
+        <button
+          onClick={() => router.push('/bonds')}
+          className="mt-3 flex items-center justify-between rounded-xl bg-[#1e222b] px-3.5 py-2.5 text-xs font-semibold text-blue-400 border border-gray-800/80 hover:bg-[#252a36] active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <Link2 size={16} className="text-blue-400" />
+            <span>Vínculos Conectados</span>
+            <span className="rounded-full bg-blue-600/20 px-2 py-0.2 text-[10px] font-bold text-blue-400">
+              {bondsCount}
             </span>
-          ) : (
-            <button
-              onClick={() => setSearchModalMode('partner')}
-              className="font-medium text-gray-400 hover:text-blue-400 transition-colors"
-            >
-              Conectar com seu parceiro(a)...
-            </button>
-          )}
-        </div>
+          </div>
+          <ChevronRight size={16} className="text-gray-400" />
+        </button>
       </div>
 
-      {/* 4. Ações */}
+      {/* 4. Botões de Ação */}
       <ProfileActions
         onShare={() => setShowShareModal(true)}
-        onAddFriend={() => setSearchModalMode('follow')}
+        onAddFriend={() => router.push('/bonds/new')}
       />
 
       {/* 5. Abas */}
@@ -287,7 +259,7 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* 6. Listagens */}
+      {/* 6. Conteúdo */}
       <div className="mt-4 flex flex-col gap-3 pb-8">
         {activeTab === 'habits' && <ProfileHabitsTab habits={habits} />}
         {activeTab === 'timeline' && <ProfileTimelineTab logs={recentLogs} />}
@@ -295,14 +267,6 @@ export default function ProfilePage() {
       </div>
 
       {/* 7. Modais */}
-      {searchModalMode && (
-        <UserSearchModal
-          isOpen={true}
-          mode={searchModalMode}
-          onClose={() => setSearchModalMode(null)}
-        />
-      )}
-
       {showShareModal && (
         <ShareProfileModal
           isOpen={true}
