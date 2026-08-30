@@ -19,7 +19,7 @@ export function ProfileStats({
     <div className="flex flex-1 justify-around pl-4 text-center">
       <div>
         <span className="block text-base font-extrabold text-white">{habitsCount}</span>
-        <span className="text-[11px] font-medium text-gray-400">hábitos</span>
+        <span className="text-[11px] font-medium text-gray-400">desafios</span>
       </div>
 
       <button

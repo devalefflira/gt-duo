@@ -229,7 +229,7 @@ export default function ProfilePage() {
           )}
         >
           <Grid size={16} />
-          <span>Hábitos</span>
+          <span>Desafios</span>
         </button>
 
         <button
