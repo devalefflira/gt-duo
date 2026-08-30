@@ -11,12 +11,17 @@ import {
   Sunset, 
   Moon, 
   Clock, 
+  CalendarRange, 
   Check, 
   Send,
-  Loader2
+  Loader2,
+  Gauge,
+  FlameKindling,
+  Scale,
+  Ruler
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { HabitPeriod, HabitScope, HabitFrequency } from '@/core/habits/types';
+import { HabitPeriod, HabitScope, HabitFrequency, GoalMode } from '@/core/habits/types';
 import { cn } from '@/lib/utils';
 
 const DAYS_NAMES = [
@@ -39,20 +44,35 @@ export default function NewChallengePage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Formulário
+  // Dados Básicos
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<HabitScope>('individual');
   const [frequencyType, setFrequencyType] = useState<HabitFrequency>('daily');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [period, setPeriod] = useState<HabitPeriod>('morning');
-  const [duration, setDuration] = useState('30');
 
-  // Campos específicos
+  // Tipo de Meta (Duração, Prazo ou Ambos)
+  const [goalMode, setGoalMode] = useState<GoalMode>('both');
+  const [duration, setDuration] = useState('30');
+  const [deadlineDays, setDeadlineDays] = useState('7');
+
+  // Métricas Opcionais com Toggles "Não se aplica"
+  const [hasDistance, setHasDistance] = useState(false);
+  const [distanceKm, setDistanceKm] = useState('5');
+
+  const [hasCalories, setHasCalories] = useState(false);
+  const [calories, setCalories] = useState('300');
+
+  const [hasWeight, setHasWeight] = useState(false);
+  const [weightKg, setWeightKg] = useState('70');
+
+  const [hasHeight, setHasHeight] = useState(false);
+  const [heightCm, setHeightCm] = useState('175');
+
+  // Vínculos Duo / Grupo
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [groupName, setGroupName] = useState('');
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
-
-  // Dados auxiliares
   const [connections, setConnections] = useState<ConnectedUser[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -64,7 +84,6 @@ export default function NewChallengePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Buscar pessoas dos Vínculos + Seguidores Mútuos
     const { data: bondsData } = await supabase
       .from('bonds')
       .select('requester_id, recipient_id, requester:profiles!bonds_requester_id_fkey(id, full_name, username), recipient:profiles!bonds_recipient_id_fkey(id, full_name, username)')
@@ -131,7 +150,6 @@ export default function NewChallengePage() {
 
         if (group) {
           createdGroupId = group.id;
-          // Inserir criador + membros
           const membersToInsert = [user.id, ...selectedGroupMembers].map((memberId) => ({
             group_id: group.id,
             user_id: memberId,
@@ -150,7 +168,18 @@ export default function NewChallengePage() {
         period,
         frequency_type: frequencyType,
         days_of_week: selectedDays,
-        target_duration_minutes: duration ? parseInt(duration, 10) : 30,
+        
+        // Metas e Prazos
+        goal_mode: goalMode,
+        target_duration_minutes: (goalMode === 'duration' || goalMode === 'both') && duration ? parseInt(duration, 10) : null,
+        deadline_days: (goalMode === 'deadline' || goalMode === 'both') && deadlineDays ? parseInt(deadlineDays, 10) : null,
+
+        // Métricas Opcionais
+        target_distance_km: hasDistance && distanceKm ? parseFloat(distanceKm) : null,
+        target_calories: hasCalories && calories ? parseInt(calories, 10) : null,
+        target_weight_kg: hasWeight && weightKg ? parseFloat(weightKg) : null,
+        target_height_cm: hasHeight && heightCm ? parseFloat(heightCm) : null,
+
         icon: 'target',
       });
 
@@ -166,7 +195,7 @@ export default function NewChallengePage() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#121418] px-5 py-6 text-white pb-32">
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-800 pb-4">
         <button
           type="button"
@@ -187,14 +216,14 @@ export default function NewChallengePage() {
           <input
             type="text"
             required
-            placeholder="Ex: Treino de Força, Leitura Diária, Corrida..."
+            placeholder="Ex: Sem Açúcar 7 dias, Correr 5km, Leitura..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full rounded-2xl bg-[#232834] px-4 py-3.5 text-sm text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        {/* Bloco 2: Tipo de Desafio */}
+        {/* Bloco 2: Tipo de Desafio (Individual / Duo / Grupo) */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <label className="text-xs font-semibold text-gray-400">Tipo de Desafio</label>
           <div className="grid grid-cols-3 gap-2">
@@ -224,14 +253,11 @@ export default function NewChallengePage() {
             })}
           </div>
 
-          {/* Seletor Duo: Escolher parceiro */}
           {scope === 'duo' && (
             <div className="mt-2 pt-3 border-t border-gray-800/60">
               <label className="text-xs font-semibold text-blue-400">Com quem você fará este Duo?</label>
               {connections.length === 0 ? (
-                <p className="mt-1 text-[11px] text-gray-400">
-                  Nenhum vínculo ativo encontrado. Conecte alguém em <strong>Vínculos</strong>.
-                </p>
+                <p className="mt-1 text-[11px] text-gray-400">Nenhum vínculo ativo. Adicione em Vínculos.</p>
               ) : (
                 <select
                   value={selectedPartnerId}
@@ -248,11 +274,10 @@ export default function NewChallengePage() {
             </div>
           )}
 
-          {/* Seletor Grupo: Nome do Grupo e Membros */}
           {scope === 'group' && (
             <div className="mt-2 flex flex-col gap-3 pt-3 border-t border-gray-800/60">
               <div>
-                <label className="text-xs font-semibold text-blue-400">Classificação / Nome do Grupo</label>
+                <label className="text-xs font-semibold text-blue-400">Nome / Classificação do Grupo</label>
                 <input
                   type="text"
                   placeholder="Ex: Grupo da Corrida, Grupo do Trabalho, Igreja..."
@@ -292,7 +317,7 @@ export default function NewChallengePage() {
           )}
         </div>
 
-        {/* Bloco 3: Frequência & Dias da Semana */}
+        {/* Bloco 3: Frequência & Dias */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <label className="text-xs font-semibold text-gray-400">Frequência</label>
           <div className="grid grid-cols-3 gap-2">
@@ -335,49 +360,235 @@ export default function NewChallengePage() {
           </div>
         </div>
 
-        {/* Bloco 4: Período & Duração */}
+        {/* Bloco 4: Meta de Tempo & Prazo (Duração / Prazo / Ambos) */}
         <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
-          <div>
-            <label className="text-xs font-semibold text-gray-400">Período do Dia</label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {[
-                { id: 'morning', label: 'Manhã', icon: Sun },
-                { id: 'afternoon', label: 'Tarde', icon: Sunset },
-                { id: 'night', label: 'Noite', icon: Moon },
-              ].map((p) => {
-                const Icon = p.icon;
-                const isSelected = period === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPeriod(p.id as HabitPeriod)}
-                    className={cn(
-                      'flex flex-col items-center gap-1 rounded-2xl p-2.5 text-xs font-semibold transition-all',
-                      isSelected ? 'bg-blue-600 text-white' : 'bg-[#232834] text-gray-400'
-                    )}
-                  >
-                    <Icon size={16} />
-                    <span>{p.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-400">Definição da Meta</label>
+            <span className="text-[10px] font-bold text-blue-400 uppercase">Tempo & Prazo</span>
           </div>
 
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'duration', label: 'Apenas Duração' },
+              { id: 'deadline', label: 'Apenas Prazo' },
+              { id: 'both', label: 'Duração + Prazo' },
+            ].map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setGoalMode(mode.id as GoalMode)}
+                className={cn(
+                  'rounded-xl p-2.5 text-center text-[11px] font-bold transition-all',
+                  goalMode === mode.id
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-[#232834] text-gray-400 hover:text-white'
+                )}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* Campo Duração */}
+            {(goalMode === 'duration' || goalMode === 'both') && (
+              <div>
+                <label className="text-xs font-semibold text-gray-300">Duração Diária (minutos)</label>
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    min="1"
+                    step="5"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="w-full rounded-2xl bg-[#232834] px-4 py-3 text-xs text-white outline-none focus:ring-2 focus:ring-blue-500 pl-9"
+                  />
+                  <Clock size={15} className="absolute left-3 top-3.5 text-gray-400" />
+                </div>
+              </div>
+            )}
+
+            {/* Campo Prazo */}
+            {(goalMode === 'deadline' || goalMode === 'both') && (
+              <div>
+                <label className="text-xs font-semibold text-gray-300">Prazo Total (dias)</label>
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={deadlineDays}
+                    onChange={(e) => setDeadlineDays(e.target.value)}
+                    className="w-full rounded-2xl bg-[#232834] px-4 py-3 text-xs text-white outline-none focus:ring-2 focus:ring-blue-500 pl-9"
+                  />
+                  <CalendarRange size={15} className="absolute left-3 top-3.5 text-gray-400" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bloco 5: Período do Dia */}
+        <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
+          <label className="text-xs font-semibold text-gray-400">Período do Dia</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'morning', label: 'Manhã', icon: Sun },
+              { id: 'afternoon', label: 'Tarde', icon: Sunset },
+              { id: 'night', label: 'Noite', icon: Moon },
+            ].map((p) => {
+              const Icon = p.icon;
+              const isSelected = period === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPeriod(p.id as HabitPeriod)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-2xl p-2.5 text-xs font-semibold transition-all',
+                    isSelected ? 'bg-blue-600 text-white' : 'bg-[#232834] text-gray-400'
+                  )}
+                >
+                  <Icon size={16} />
+                  <span>{p.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bloco 6: Métricas Opcionais (com Toggles "Não se aplica") */}
+        <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <div>
-            <label className="text-xs font-semibold text-gray-400">Duração Estimada (minutos)</label>
-            <div className="relative mt-1.5">
-              <input
-                type="number"
-                min="5"
-                step="5"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="w-full rounded-2xl bg-[#232834] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 pl-10"
-              />
-              <Clock size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">Métricas Adicionais</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Ative apenas o que deseja metrificar neste desafio.</p>
+          </div>
+
+          {/* Distância */}
+          <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Gauge size={16} className="text-blue-400" />
+                <span className="text-xs font-bold text-white">Distância</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasDistance(!hasDistance)}
+                className={cn(
+                  'rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all',
+                  hasDistance ? 'bg-blue-600 text-white' : 'bg-[#191c24] text-gray-400'
+                )}
+              >
+                {hasDistance ? 'Ativado' : 'Não se aplica'}
+              </button>
             </div>
+            {hasDistance && (
+              <div className="mt-3">
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Quilômetros (ex: 5)"
+                  value={distanceKm}
+                  onChange={(e) => setDistanceKm(e.target.value)}
+                  className="w-full rounded-xl bg-[#191c24] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Calorias */}
+          <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FlameKindling size={16} className="text-orange-400" />
+                <span className="text-xs font-bold text-white">Calorias</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasCalories(!hasCalories)}
+                className={cn(
+                  'rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all',
+                  hasCalories ? 'bg-blue-600 text-white' : 'bg-[#191c24] text-gray-400'
+                )}
+              >
+                {hasCalories ? 'Ativado' : 'Não se aplica'}
+              </button>
+            </div>
+            {hasCalories && (
+              <div className="mt-3">
+                <input
+                  type="number"
+                  step="10"
+                  placeholder="Calorias (ex: 300)"
+                  value={calories}
+                  onChange={(e) => setCalories(e.target.value)}
+                  className="w-full rounded-xl bg-[#191c24] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Peso */}
+          <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Scale size={16} className="text-emerald-400" />
+                <span className="text-xs font-bold text-white">Peso Meta</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasWeight(!hasWeight)}
+                className={cn(
+                  'rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all',
+                  hasWeight ? 'bg-blue-600 text-white' : 'bg-[#191c24] text-gray-400'
+                )}
+              >
+                {hasWeight ? 'Ativado' : 'Não se aplica'}
+              </button>
+            </div>
+            {hasWeight && (
+              <div className="mt-3">
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="Quilos (ex: 70)"
+                  value={weightKg}
+                  onChange={(e) => setWeightKg(e.target.value)}
+                  className="w-full rounded-xl bg-[#191c24] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Altura */}
+          <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Ruler size={16} className="text-purple-400" />
+                <span className="text-xs font-bold text-white">Altura</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasHeight(!hasHeight)}
+                className={cn(
+                  'rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all',
+                  hasHeight ? 'bg-blue-600 text-white' : 'bg-[#191c24] text-gray-400'
+                )}
+              >
+                {hasHeight ? 'Ativado' : 'Não se aplica'}
+              </button>
+            </div>
+            {hasHeight && (
+              <div className="mt-3">
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="Centímetros (ex: 175)"
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                  className="w-full rounded-xl bg-[#191c24] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
           </div>
         </div>
 
