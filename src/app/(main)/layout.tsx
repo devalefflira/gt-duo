@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, CalendarCheck, Users, Flame, User } from 'lucide-react';
+import { LayoutGrid, Target, Users, Flame, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +10,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const navItems = [
     { label: 'MENU', href: '/menu', icon: LayoutGrid },
-    { label: 'HÁBITO', href: '/', icon: CalendarCheck },
+    { label: 'DESAFIOS', href: '/', icon: Target },
     { label: 'DUO', href: '/duo', icon: Users },
     { label: 'GRUPO', href: '/group', icon: Flame },
     { label: 'EU', href: '/profile', icon: User },

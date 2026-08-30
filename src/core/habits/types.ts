@@ -6,18 +6,20 @@ export interface Habit {
   id: string;
   user_id: string;
   couple_id?: string | null;
+  partner_id?: string | null;
   group_id?: string | null;
+  group_name?: string | null;
   title: string;
   description?: string | null;
   icon: string;
-  color: string;
+  color?: string;
   period: HabitPeriod;
   scope: HabitScope;
   frequency_type: HabitFrequency;
   days_of_week: number[];
-  is_shared_with_partner: boolean;
+  is_shared_with_partner?: boolean;
   target_duration_minutes?: number | null;
-  target_days_per_week: number;
+  target_days_per_week?: number;
   created_at: string;
   archived_at?: string | null;
 }
