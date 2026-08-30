@@ -1,8 +1,70 @@
 import { createClient } from '@/lib/supabase/client';
-import { Habit, HabitLog, HabitWithStatus } from './types';
+import { Habit, HabitLog, HabitWithStatus, HabitScope, HabitPeriod, HabitFrequency, GoalMode } from './types';
 import { format, getDay, isBefore, isAfter, parseISO, startOfDay } from 'date-fns';
 
+export interface CreateHabitDTO {
+  title: string;
+  description?: string;
+  period?: HabitPeriod;
+  scope?: HabitScope;
+  frequency_type?: HabitFrequency;
+  days_of_week?: number[];
+  partner_id?: string | null;
+  group_id?: string | null;
+  group_name?: string | null;
+  start_date?: string;
+  end_date?: string | null;
+  goal_mode?: GoalMode;
+  target_duration_minutes?: number | null;
+  deadline_days?: number | null;
+  target_distance_km?: number | null;
+  target_calories?: number | null;
+  target_weight_kg?: number | null;
+  target_height_cm?: number | null;
+  icon?: string;
+}
+
 export const HabitService = {
+  async createHabit(dto: CreateHabitDTO): Promise<Habit | null> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('habits')
+      .insert({
+        user_id: user.id,
+        title: dto.title,
+        description: dto.description || null,
+        period: dto.period || 'morning',
+        scope: dto.scope || 'individual',
+        frequency_type: dto.frequency_type || 'daily',
+        days_of_week: dto.days_of_week || [0, 1, 2, 3, 4, 5, 6],
+        partner_id: dto.partner_id || null,
+        group_id: dto.group_id || null,
+        group_name: dto.group_name || null,
+        start_date: dto.start_date || format(new Date(), 'yyyy-MM-dd'),
+        end_date: dto.end_date || null,
+        goal_mode: dto.goal_mode || 'duration',
+        target_duration_minutes: dto.target_duration_minutes || null,
+        deadline_days: dto.deadline_days || null,
+        target_distance_km: dto.target_distance_km || null,
+        target_calories: dto.target_calories || null,
+        target_weight_kg: dto.target_weight_kg || null,
+        target_height_cm: dto.target_height_cm || null,
+        icon: dto.icon || 'target',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao criar desafio:', error);
+      return null;
+    }
+
+    return data as Habit;
+  },
+
   async getHabitsByDate(date: Date): Promise<HabitWithStatus[]> {
     const supabase = createClient();
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -24,24 +86,18 @@ export const HabitService = {
       return [];
     }
 
-    // 2. Filtrar por:
-    // - Data de Início (o dia selecionado precisa ser >= start_date)
-    // - Data de Término (o dia selecionado precisa ser <= end_date, se houver end_date)
-    // - Dias da semana programados
+    // 2. Filtrar por start_date, end_date e dias da semana
     const scheduledHabits = habits.filter((habit: Habit) => {
-      // Checar data de início
       if (habit.start_date) {
         const start = startOfDay(parseISO(habit.start_date));
         if (isBefore(targetDateObj, start)) return false;
       }
 
-      // Checar data de término (se tiver prazo)
       if (habit.end_date) {
         const end = startOfDay(parseISO(habit.end_date));
         if (isAfter(targetDateObj, end)) return false;
       }
 
-      // Checar dias da semana
       if (!habit.days_of_week || habit.days_of_week.length === 0) return true;
       return habit.days_of_week.includes(dayOfWeek);
     });
