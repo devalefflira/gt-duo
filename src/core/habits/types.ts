@@ -20,7 +20,9 @@ export interface Habit {
   days_of_week: number[];
   is_shared_with_partner?: boolean;
   
-  // Metas e Prazos
+  // Datas e Prazos
+  start_date: string;
+  end_date?: string | null;
   goal_mode: GoalMode;
   target_duration_minutes?: number | null;
   deadline_days?: number | null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   ChevronLeft, 
@@ -12,8 +12,8 @@ import {
   Moon, 
   Clock, 
   CalendarRange, 
+  Calendar,
   Check, 
-  Send,
   Loader2,
   Gauge,
   FlameKindling,
@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { HabitPeriod, HabitScope, HabitFrequency, GoalMode } from '@/core/habits/types';
+import { format, addDays, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const DAYS_NAMES = [
@@ -46,6 +48,7 @@ export default function NewChallengePage() {
 
   // Dados Básicos
   const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [scope, setScope] = useState<HabitScope>('individual');
   const [frequencyType, setFrequencyType] = useState<HabitFrequency>('daily');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
@@ -99,6 +102,24 @@ export default function NewChallengePage() {
     setConnections(list);
     if (list.length > 0) setSelectedPartnerId(list[0].id);
   };
+
+  // Cálculo Dinâmico da Data Final
+  const calculatedEndDate = useMemo(() => {
+    if ((goalMode === 'deadline' || goalMode === 'both') && deadlineDays) {
+      const days = parseInt(deadlineDays, 10);
+      if (!isNaN(days) && days > 0) {
+        try {
+          const start = parseISO(startDate);
+          // O término é data_inicio + dias - 1 dia (ex: 7 dias começando hoje termina daqui a 6 dias)
+          const end = addDays(start, days - 1);
+          return format(end, 'yyyy-MM-dd');
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  }, [startDate, goalMode, deadlineDays]);
 
   const toggleDay = (day: number) => {
     setSelectedDays((prev) => {
@@ -168,8 +189,10 @@ export default function NewChallengePage() {
         period,
         frequency_type: frequencyType,
         days_of_week: selectedDays,
-        
-        // Metas e Prazos
+
+        // Datas e Prazos
+        start_date: startDate,
+        end_date: calculatedEndDate,
         goal_mode: goalMode,
         target_duration_minutes: (goalMode === 'duration' || goalMode === 'both') && duration ? parseInt(duration, 10) : null,
         deadline_days: (goalMode === 'deadline' || goalMode === 'both') && deadlineDays ? parseInt(deadlineDays, 10) : null,
@@ -210,17 +233,34 @@ export default function NewChallengePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
-        {/* Bloco 1: Nome do Desafio */}
-        <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
-          <label className="text-xs font-semibold text-gray-400">Nome do Desafio</label>
-          <input
-            type="text"
-            required
-            placeholder="Ex: Sem Açúcar 7 dias, Correr 5km, Leitura..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-2xl bg-[#232834] px-4 py-3.5 text-sm text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Bloco 1: Nome do Desafio & Data de Início */}
+        <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
+          <div>
+            <label className="text-xs font-semibold text-gray-400">Nome do Desafio</label>
+            <input
+              type="text"
+              required
+              placeholder="Ex: Sem Açúcar 7 dias, Correr 5km, Leitura..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-1 w-full rounded-2xl bg-[#232834] px-4 py-3.5 text-sm text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Data de Início */}
+          <div>
+            <label className="text-xs font-semibold text-gray-400">Data de Início</label>
+            <div className="relative mt-1">
+              <input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-2xl bg-[#232834] px-4 py-3 text-xs text-white outline-none focus:ring-2 focus:ring-blue-500 pl-10"
+              />
+              <Calendar size={16} className="absolute left-3.5 top-3 text-gray-400" />
+            </div>
+          </div>
         </div>
 
         {/* Bloco 2: Tipo de Desafio (Individual / Duo / Grupo) */}
@@ -360,7 +400,7 @@ export default function NewChallengePage() {
           </div>
         </div>
 
-        {/* Bloco 4: Meta de Tempo & Prazo (Duração / Prazo / Ambos) */}
+        {/* Bloco 4: Duração, Prazo & Data Final Calculada */}
         <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-gray-400">Definição da Meta</label>
@@ -408,7 +448,7 @@ export default function NewChallengePage() {
               </div>
             )}
 
-            {/* Campo Prazo */}
+            {/* Campo Prazo em Dias */}
             {(goalMode === 'deadline' || goalMode === 'both') && (
               <div>
                 <label className="text-xs font-semibold text-gray-300">Prazo Total (dias)</label>
@@ -425,6 +465,16 @@ export default function NewChallengePage() {
               </div>
             )}
           </div>
+
+          {/* Exibição da Data de Término Estimada */}
+          {calculatedEndDate && (
+            <div className="rounded-2xl bg-[#232834]/80 p-3.5 border border-blue-500/20 text-xs">
+              <span className="text-gray-400">Término previsto para: </span>
+              <strong className="text-blue-400">
+                {format(parseISO(calculatedEndDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </strong>
+            </div>
+          )}
         </div>
 
         {/* Bloco 5: Período do Dia */}
@@ -456,7 +506,7 @@ export default function NewChallengePage() {
           </div>
         </div>
 
-        {/* Bloco 6: Métricas Opcionais (com Toggles "Não se aplica") */}
+        {/* Bloco 6: Métricas Opcionais */}
         <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <div>
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">Métricas Adicionais</h3>
