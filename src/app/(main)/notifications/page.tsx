@@ -9,9 +9,8 @@ import {
   Link2, 
   Check, 
   X, 
-  Sparkles, 
-  Clock,
-  HeartHandshake
+  HeartHandshake,
+  Trash2
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -39,6 +38,7 @@ export default function NotificationsPage() {
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,7 +53,6 @@ export default function NotificationsPage() {
       return;
     }
 
-    // Buscar notificações recebidas com os dados do remetente
     const { data, error } = await supabase
       .from('notifications')
       .select('*, sender:profiles!notifications_sender_id_fkey(id, full_name, username, avatar_url)')
@@ -66,19 +65,28 @@ export default function NotificationsPage() {
     setLoading(false);
   };
 
-  // Aceitar solicitação (Duo ou Seguir)
+  // Limpar todas as notificações recebidas
+  const handleClearAll = async () => {
+    if (notifications.length === 0) return;
+    setClearing(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('notifications').delete().eq('recipient_id', user.id);
+    setNotifications([]);
+    setClearing(false);
+  };
+
   const handleAccept = async (notification: NotificationItem) => {
     setProcessingId(notification.id);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     if (notification.type === 'partner_invite') {
-      // 1. Criar relação de casal
       await supabase.rpc('accept_partner_invite', {
         sender_user_id: notification.sender_id,
       });
 
-      // 2. Enviar notificação de confirmação ao parceiro
       await supabase.from('notifications').insert({
         recipient_id: notification.sender_id,
         sender_id: user.id,
@@ -86,14 +94,12 @@ export default function NotificationsPage() {
         status: 'read',
       });
     } else if (notification.type === 'follow_request') {
-      // 1. Atualizar status na tabela follows para aceito
       await supabase
         .from('follows')
         .update({ status: 'accepted' })
         .eq('follower_id', notification.sender_id)
         .eq('following_id', user.id);
 
-      // 2. Enviar notificação de confirmação
       await supabase.from('notifications').insert({
         recipient_id: notification.sender_id,
         sender_id: user.id,
@@ -102,7 +108,6 @@ export default function NotificationsPage() {
       });
     }
 
-    // 3. Atualizar status da notificação atual para 'accepted'
     await supabase
       .from('notifications')
       .update({ status: 'accepted' })
@@ -114,7 +119,6 @@ export default function NotificationsPage() {
     setProcessingId(null);
   };
 
-  // Recusar solicitação
   const handleReject = async (notification: NotificationItem) => {
     setProcessingId(notification.id);
 
@@ -148,8 +152,22 @@ export default function NotificationsPage() {
           <ChevronLeft size={20} />
           <span>Voltar</span>
         </button>
+
         <h1 className="text-base font-bold">Notificações</h1>
-        <div className="w-8" />
+
+        {/* Botão Limpar Notificações */}
+        {notifications.length > 0 ? (
+          <button
+            onClick={handleClearAll}
+            disabled={clearing}
+            className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+          >
+            <Trash2 size={14} />
+            <span>{clearing ? 'Limpando...' : 'Limpar'}</span>
+          </button>
+        ) : (
+          <div className="w-12" />
+        )}
       </div>
 
       {/* Lista de Notificações */}
@@ -165,7 +183,7 @@ export default function NotificationsPage() {
             </div>
             <h3 className="text-sm font-bold text-gray-300">Tudo limpo por aqui</h3>
             <p className="mt-1 text-xs text-gray-500 max-w-[240px]">
-              Quando você receber solicitações de amizade ou convites de parceiro, elas aparecerão aqui.
+              Nenhuma notificação recente pendente.
             </p>
           </div>
         ) : (
@@ -189,14 +207,12 @@ export default function NotificationsPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    {/* Avatar do Remetente */}
                     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5 shrink-0">
                       <div className="flex h-full w-full items-center justify-center rounded-full bg-[#161920] font-bold text-sm text-blue-400">
                         {item.sender?.full_name?.charAt(0).toUpperCase() || 'U'}
                       </div>
                     </div>
 
-                    {/* Conteúdo textual */}
                     <div>
                       <p className="text-xs font-semibold leading-snug">
                         <span className="font-bold text-white">
@@ -235,7 +251,6 @@ export default function NotificationsPage() {
                   </div>
                 </div>
 
-                {/* Ações para convites pendentes */}
                 {isPending && (
                   <div className="mt-1 flex items-center gap-2 pt-2 border-t border-gray-800/60">
                     <button
