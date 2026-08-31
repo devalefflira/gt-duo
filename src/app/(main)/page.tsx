@@ -4,10 +4,11 @@ import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Plus, 
+  Layers,
+  Clock3,
   Sun, 
   Sunset, 
   Moon, 
-  Clock3,
   Check, 
   MoreHorizontal, 
   Dumbbell, 
@@ -17,7 +18,6 @@ import {
   Target,
   ChevronLeft,
   ChevronRight,
-  Calendar as CalendarIcon,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -39,6 +39,8 @@ import { HabitService } from '@/core/habits/habit-service';
 import { HabitWithStatus, HabitPeriod, HabitScope } from '@/core/habits/types';
 import { cn } from '@/lib/utils';
 
+type PeriodFilter = 'all' | 'anytime' | 'morning' | 'afternoon' | 'night';
+
 function ChallengesDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,7 +48,7 @@ function ChallengesDashboardContent() {
 
   const [activeScope, setActiveScope] = useState<HabitScope>(initialTab);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedPeriod, setSelectedPeriod] = useState<HabitPeriod | 'all'>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>('all');
   const [habits, setHabits] = useState<HabitWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,6 +113,7 @@ function ChallengesDashboardContent() {
     if (!matchesScope) return false;
 
     if (selectedPeriod === 'all') return true;
+    if (selectedPeriod === 'anytime') return h.period === 'anytime';
     return h.period === selectedPeriod || h.period === 'anytime';
   });
 
@@ -162,7 +165,7 @@ function ChallengesDashboardContent() {
 
       {/* 3. Calendário Expansível e Navegável */}
       <div className="mt-4 flex flex-col rounded-3xl bg-[#191c24] p-3.5 border border-gray-800/60 shadow-lg">
-        {/* Barra de Controle de Navegação do Calendário */}
+        {/* Barra de Controle do Calendário */}
         <div className="flex items-center justify-between pb-2.5 px-1 border-b border-gray-800/60">
           <div className="flex items-center gap-2">
             <button
@@ -199,7 +202,7 @@ function ChallengesDashboardContent() {
           </div>
         </div>
 
-        {/* Visão Semanal (Padrão) */}
+        {/* Visão Semanal */}
         {!isMonthView ? (
           <div className="mt-2 flex items-center justify-between gap-1">
             {weekDays.map((day) => {
@@ -230,7 +233,6 @@ function ChallengesDashboardContent() {
         ) : (
           /* Visão Mensal Completa */
           <div className="mt-3 flex flex-col gap-1 animate-in fade-in">
-            {/* Cabeçalho dos dias da semana */}
             <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase py-1">
               <span>Dom</span>
               <span>Seg</span>
@@ -241,7 +243,6 @@ function ChallengesDashboardContent() {
               <span>Sáb</span>
             </div>
 
-            {/* Grade dos dias do mês */}
             <div className="grid grid-cols-7 gap-1">
               {fullMonthDays.map((day) => {
                 const isSelected = isSameDay(day, selectedDate);
@@ -253,7 +254,7 @@ function ChallengesDashboardContent() {
                     key={day.toISOString()}
                     onClick={() => {
                       setSelectedDate(day);
-                      setIsMonthView(false); // recolhe para semana ao selecionar
+                      setIsMonthView(false);
                     }}
                     className={cn(
                       'flex h-9 flex-col items-center justify-center rounded-xl text-xs font-bold transition-all',
@@ -274,11 +275,12 @@ function ChallengesDashboardContent() {
         )}
       </div>
 
-      {/* 4. Seletor de Turno com DIA INTEIRO incluído */}
+      {/* 4. Seletor de Turno: TODOS, DIA INTEIRO, MANHÃ, TARDE, NOITE */}
       <div className="mt-4 flex justify-center">
         <div className="flex rounded-full bg-[#191c24] p-1 border border-gray-800/80 max-w-full overflow-x-auto no-scrollbar">
           {[
-            { id: 'all', label: 'DIA INTEIRO', icon: Clock3 },
+            { id: 'all', label: 'TODOS', icon: Layers },
+            { id: 'anytime', label: 'DIA INTEIRO', icon: Clock3 },
             { id: 'morning', label: 'MANHÃ', icon: Sun },
             { id: 'afternoon', label: 'TARDE', icon: Sunset },
             { id: 'night', label: 'NOITE', icon: Moon },
@@ -288,15 +290,15 @@ function ChallengesDashboardContent() {
             return (
               <button
                 key={period.id}
-                onClick={() => setSelectedPeriod(period.id as any)}
+                onClick={() => setSelectedPeriod(period.id as PeriodFilter)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold transition-all whitespace-nowrap',
+                  'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] sm:text-[11px] font-bold transition-all whitespace-nowrap',
                   isSelected 
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' 
                     : 'text-gray-400 hover:text-white'
                 )}
               >
-                <Icon size={14} />
+                <Icon size={13} />
                 <span>{period.label}</span>
               </button>
             );
