@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Grid, History, Award, Link2, ChevronRight } from 'lucide-react';
+import { Grid, History, Award, Link2, ChevronRight, Coins } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Habit, HabitLog } from '@/core/habits/types';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,7 @@ interface UserProfile {
   avatar_url?: string | null;
   bio?: string | null;
   is_private: boolean;
+  gt_coins?: number;
   pronouns?: string[];
   show_pronouns_on_profile?: boolean;
 }
@@ -64,7 +65,7 @@ export default function ProfilePage() {
       return;
     }
 
-    // 1. Perfil
+    // 1. Perfil com saldo de GTCoins
     const { data: userProfile } = await supabase
       .from('profiles')
       .select('*')
@@ -80,10 +81,11 @@ export default function ProfilePage() {
         username: user.user_metadata?.username || 'usuario',
         bio: 'Construindo hábitos sólidos todos os dias.',
         is_private: true,
+        gt_coins: 0,
       });
     }
 
-    // 2. Contagem de Vínculos Aceitos
+    // 2. Contagem de Vínculos
     const { count: bonds } = await supabase
       .from('bonds')
       .select('*', { count: 'exact', head: true })
@@ -136,7 +138,7 @@ export default function ProfilePage() {
       setRecentLogs(
         logs.map((log: any) => ({
           ...log,
-          habit_title: log.habits?.title || 'Hábito concluído',
+          habit_title: log.habits?.title || 'Desafio concluído',
         }))
       );
     }
@@ -158,7 +160,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col px-5 pt-4 text-white">
-      {/* 1. Header */}
+      {/* 1. Top Bar */}
       <ProfileHeader
         username={profile.username}
         isPrivate={profile.is_private}
@@ -185,17 +187,27 @@ export default function ProfilePage() {
         />
       </div>
 
-      {/* 3. Bio & Acesso aos Vínculos */}
+      {/* 3. Nome, Bio e Badge de GTCoins */}
       <div className="mt-4 flex flex-col">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-white">{displayName}</h2>
-          {profile.show_pronouns_on_profile && profile.pronouns && profile.pronouns.length > 0 && (
-            <span className="text-xs text-gray-400">({profile.pronouns.join('/')})</span>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-white">{displayName}</h2>
+            {profile.show_pronouns_on_profile && profile.pronouns && profile.pronouns.length > 0 && (
+              <span className="text-xs text-gray-400">({profile.pronouns.join('/')})</span>
+            )}
+          </div>
+
+          {/* Badge de GTCoins */}
+          <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-500/10">
+            <Coins size={14} className="text-amber-400" />
+            <span className="text-xs font-black tracking-tight">{profile.gt_coins || 0}</span>
+            <span className="text-[9px] font-bold text-amber-500/80 uppercase">GTC</span>
+          </div>
         </div>
+
         <p className="mt-1 text-xs text-gray-300 leading-relaxed">{profile.bio}</p>
 
-        {/* Linha de Vínculos Clicável */}
+        {/* Linha de Vínculos Conectados */}
         <button
           onClick={() => router.push('/bonds')}
           className="mt-3 flex items-center justify-between rounded-xl bg-[#1e222b] px-3.5 py-2.5 text-xs font-semibold text-blue-400 border border-gray-800/80 hover:bg-[#252a36] active:scale-[0.99] transition-all"
