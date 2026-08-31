@@ -54,12 +54,12 @@ export default function NewChallengePage() {
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [period, setPeriod] = useState<HabitPeriod>('morning');
 
-  // Tipo de Meta (Duração, Prazo ou Ambos)
+  // Tipo de Meta
   const [goalMode, setGoalMode] = useState<GoalMode>('both');
   const [duration, setDuration] = useState('30');
   const [deadlineDays, setDeadlineDays] = useState('7');
 
-  // Métricas Opcionais com Toggles "Não se aplica"
+  // Métricas Opcionais
   const [hasDistance, setHasDistance] = useState(false);
   const [distanceKm, setDistanceKm] = useState('5');
 
@@ -103,14 +103,12 @@ export default function NewChallengePage() {
     if (list.length > 0) setSelectedPartnerId(list[0].id);
   };
 
-  // Cálculo Dinâmico da Data Final
   const calculatedEndDate = useMemo(() => {
     if ((goalMode === 'deadline' || goalMode === 'both') && deadlineDays) {
       const days = parseInt(deadlineDays, 10);
       if (!isNaN(days) && days > 0) {
         try {
           const start = parseISO(startDate);
-          // O término é data_inicio + dias - 1 dia (ex: 7 dias começando hoje termina daqui a 6 dias)
           const end = addDays(start, days - 1);
           return format(end, 'yyyy-MM-dd');
         } catch {
@@ -171,40 +169,92 @@ export default function NewChallengePage() {
 
         if (group) {
           createdGroupId = group.id;
-          const membersToInsert = [user.id, ...selectedGroupMembers].map((memberId) => ({
+
+          // Criador aceito
+          await supabase.from('habit_group_members').insert({
             group_id: group.id,
-            user_id: memberId,
-          }));
-          await supabase.from('habit_group_members').insert(membersToInsert);
+            user_id: user.id,
+            status: 'accepted',
+          });
+
+          // Membros convidados como pendentes + disparo de notificações
+          for (const memberId of selectedGroupMembers) {
+            await supabase.from('habit_group_members').insert({
+              group_id: group.id,
+              user_id: memberId,
+              status: 'pending',
+            });
+
+            await supabase.from('notifications').insert({
+              recipient_id: memberId,
+              sender_id: user.id,
+              type: 'group_challenge_invite',
+              status: 'pending',
+              metadata: {
+                group_id: group.id,
+                group_name: finalGroupName,
+                title: title.trim(),
+                period,
+                deadline_days: deadlineDays,
+              },
+            });
+          }
         }
       }
 
-      await supabase.from('habits').insert({
-        user_id: user.id,
-        partner_id: scope === 'duo' ? selectedPartnerId || null : null,
-        group_id: createdGroupId,
-        group_name: scope === 'group' ? groupName.trim() || 'Grupo Desafio' : null,
-        title: title.trim(),
-        scope,
-        period,
-        frequency_type: frequencyType,
-        days_of_week: selectedDays,
+      // Inserção do Desafio
+      const { data: habit, error: habitError } = await supabase
+        .from('habits')
+        .insert({
+          user_id: user.id,
+          partner_id: scope === 'duo' ? selectedPartnerId || null : null,
+          group_id: createdGroupId,
+          group_name: scope === 'group' ? groupName.trim() || 'Grupo Desafio' : null,
+          title: title.trim(),
+          scope,
+          period,
+          frequency_type: frequencyType,
+          days_of_week: selectedDays,
 
-        // Datas e Prazos
-        start_date: startDate,
-        end_date: calculatedEndDate,
-        goal_mode: goalMode,
-        target_duration_minutes: (goalMode === 'duration' || goalMode === 'both') && duration ? parseInt(duration, 10) : null,
-        deadline_days: (goalMode === 'deadline' || goalMode === 'both') && deadlineDays ? parseInt(deadlineDays, 10) : null,
+          // Status de convite: individual nasce accepted, duo nasce pending
+          invite_status: scope === 'duo' ? 'pending' : 'accepted',
 
-        // Métricas Opcionais
-        target_distance_km: hasDistance && distanceKm ? parseFloat(distanceKm) : null,
-        target_calories: hasCalories && calories ? parseInt(calories, 10) : null,
-        target_weight_kg: hasWeight && weightKg ? parseFloat(weightKg) : null,
-        target_height_cm: hasHeight && heightCm ? parseFloat(heightCm) : null,
+          // Datas e Prazos
+          start_date: startDate,
+          end_date: calculatedEndDate,
+          goal_mode: goalMode,
+          target_duration_minutes: (goalMode === 'duration' || goalMode === 'both') && duration ? parseInt(duration, 10) : null,
+          deadline_days: (goalMode === 'deadline' || goalMode === 'both') && deadlineDays ? parseInt(deadlineDays, 10) : null,
 
-        icon: 'target',
-      });
+          // Métricas Opcionais
+          target_distance_km: hasDistance && distanceKm ? parseFloat(distanceKm) : null,
+          target_calories: hasCalories && calories ? parseInt(calories, 10) : null,
+          target_weight_kg: hasWeight && weightKg ? parseFloat(weightKg) : null,
+          target_height_cm: hasHeight && heightCm ? parseFloat(heightCm) : null,
+
+          icon: 'target',
+        })
+        .select()
+        .single();
+
+      if (habitError) throw habitError;
+
+      // Se for Duo, disparar a notificação para o parceiro convidado
+      if (scope === 'duo' && selectedPartnerId && habit) {
+        await supabase.from('notifications').insert({
+          recipient_id: selectedPartnerId,
+          sender_id: user.id,
+          type: 'duo_challenge_invite',
+          status: 'pending',
+          metadata: {
+            challenge_id: habit.id,
+            title: title.trim(),
+            period,
+            start_date: startDate,
+            deadline_days: deadlineDays,
+          },
+        });
+      }
 
       router.push(`/?tab=${scope}`);
       router.refresh();
@@ -233,7 +283,7 @@ export default function NewChallengePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
-        {/* Bloco 1: Nome do Desafio & Data de Início */}
+        {/* Bloco 1: Nome & Data de Início */}
         <div className="flex flex-col gap-4 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <div>
             <label className="text-xs font-semibold text-gray-400">Nome do Desafio</label>
@@ -247,7 +297,6 @@ export default function NewChallengePage() {
             />
           </div>
 
-          {/* Data de Início */}
           <div>
             <label className="text-xs font-semibold text-gray-400">Data de Início</label>
             <div className="relative mt-1">
@@ -263,7 +312,7 @@ export default function NewChallengePage() {
           </div>
         </div>
 
-        {/* Bloco 2: Tipo de Desafio (Individual / Duo / Grupo) */}
+        {/* Bloco 2: Tipo de Desafio */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <label className="text-xs font-semibold text-gray-400">Tipo de Desafio</label>
           <div className="grid grid-cols-3 gap-2">
@@ -297,7 +346,7 @@ export default function NewChallengePage() {
             <div className="mt-2 pt-3 border-t border-gray-800/60">
               <label className="text-xs font-semibold text-blue-400">Com quem você fará este Duo?</label>
               {connections.length === 0 ? (
-                <p className="mt-1 text-[11px] text-gray-400">Nenhum vínculo ativo. Adicione em Vínculos.</p>
+                <p className="mt-1 text-[11px] text-gray-400">Nenhum vínculo ativo encontrado.</p>
               ) : (
                 <select
                   value={selectedPartnerId}
@@ -430,7 +479,6 @@ export default function NewChallengePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {/* Campo Duração */}
             {(goalMode === 'duration' || goalMode === 'both') && (
               <div>
                 <label className="text-xs font-semibold text-gray-300">Duração Diária (minutos)</label>
@@ -448,7 +496,6 @@ export default function NewChallengePage() {
               </div>
             )}
 
-            {/* Campo Prazo em Dias */}
             {(goalMode === 'deadline' || goalMode === 'both') && (
               <div>
                 <label className="text-xs font-semibold text-gray-300">Prazo Total (dias)</label>
@@ -466,7 +513,6 @@ export default function NewChallengePage() {
             )}
           </div>
 
-          {/* Exibição da Data de Término Estimada */}
           {calculatedEndDate && (
             <div className="rounded-2xl bg-[#232834]/80 p-3.5 border border-blue-500/20 text-xs">
               <span className="text-gray-400">Término previsto para: </span>
@@ -642,7 +688,7 @@ export default function NewChallengePage() {
           </div>
         </div>
 
-        {/* Botões de Ação */}
+        {/* Botões */}
         <div className="flex items-center gap-3 pt-2">
           <button
             type="button"

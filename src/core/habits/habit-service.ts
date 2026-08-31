@@ -53,6 +53,7 @@ export const HabitService = {
         target_weight_kg: dto.target_weight_kg || null,
         target_height_cm: dto.target_height_cm || null,
         icon: dto.icon || 'target',
+        invite_status: dto.scope === 'duo' ? 'pending' : 'accepted',
       })
       .select()
       .single();
@@ -86,8 +87,14 @@ export const HabitService = {
       return [];
     }
 
-    // 2. Filtrar por start_date, end_date e dias da semana
-    const scheduledHabits = habits.filter((habit: Habit) => {
+    // 2. Filtrar por convite, start_date, end_date e dias da semana
+    const scheduledHabits = habits.filter((habit: any) => {
+      const isPartner = habit.partner_id === user.id;
+
+      if (habit.scope === 'duo' && isPartner && habit.invite_status !== 'accepted') {
+        return false;
+      }
+
       if (habit.start_date) {
         const start = startOfDay(parseISO(habit.start_date));
         if (isBefore(targetDateObj, start)) return false;
@@ -105,7 +112,7 @@ export const HabitService = {
     if (scheduledHabits.length === 0) return [];
 
     // 3. Buscar logs de conclusão
-    const habitIds = scheduledHabits.map((h) => h.id);
+    const habitIds = scheduledHabits.map((h: any) => h.id);
     const { data: logs } = await supabase
       .from('habit_logs')
       .select('*')
@@ -117,7 +124,7 @@ export const HabitService = {
       completedHabitMap.set(log.habit_id, log.id);
     });
 
-    return scheduledHabits.map((habit) => ({
+    return scheduledHabits.map((habit: any) => ({
       ...habit,
       isCompletedToday: completedHabitMap.has(habit.id),
       logId: completedHabitMap.get(habit.id),

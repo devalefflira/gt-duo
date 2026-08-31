@@ -11,7 +11,9 @@ import {
   X, 
   HeartHandshake,
   Trash2,
-  Users
+  Users,
+  Target,
+  Flame
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,7 +24,16 @@ interface NotificationItem {
   id: string;
   sender_id: string;
   recipient_id: string;
-  type: 'partner_invite' | 'follow_request' | 'follow_accepted' | 'partner_accepted' | 'bond_request' | 'bond_accepted';
+  type: 
+    | 'partner_invite' 
+    | 'follow_request' 
+    | 'follow_accepted' 
+    | 'partner_accepted' 
+    | 'bond_request' 
+    | 'bond_accepted'
+    | 'duo_challenge_invite'
+    | 'group_challenge_invite'
+    | 'duo_challenge_accepted';
   status: 'pending' | 'accepted' | 'rejected' | 'read';
   metadata?: any;
   created_at: string;
@@ -83,22 +94,21 @@ export default function NotificationsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    if (notification.type === 'bond_request') {
+    if (notification.type === 'duo_challenge_invite') {
+      const challengeId = notification.metadata?.challenge_id;
+      if (challengeId) {
+        await supabase.rpc('accept_duo_challenge', { challenge_id_param: challengeId });
+      }
+    } else if (notification.type === 'group_challenge_invite') {
+      const groupId = notification.metadata?.group_id;
+      if (groupId) {
+        await supabase.rpc('accept_group_challenge', { group_id_param: groupId });
+      }
+    } else if (notification.type === 'bond_request') {
       const bondId = notification.metadata?.bond_id;
       if (bondId) {
         await supabase.rpc('accept_bond', { bond_id_param: bondId });
       }
-    } else if (notification.type === 'partner_invite') {
-      await supabase.rpc('accept_partner_invite', {
-        sender_user_id: notification.sender_id,
-      });
-
-      await supabase.from('notifications').insert({
-        recipient_id: notification.sender_id,
-        sender_id: user.id,
-        type: 'partner_accepted',
-        status: 'read',
-      });
     } else if (notification.type === 'follow_request') {
       await supabase
         .from('follows')
@@ -128,7 +138,21 @@ export default function NotificationsPage() {
   const handleReject = async (notification: NotificationItem) => {
     setProcessingId(notification.id);
 
-    if (notification.type === 'bond_request') {
+    if (notification.type === 'duo_challenge_invite') {
+      const challengeId = notification.metadata?.challenge_id;
+      if (challengeId) {
+        await supabase.from('habits').delete().eq('id', challengeId);
+      }
+    } else if (notification.type === 'group_challenge_invite') {
+      const groupId = notification.metadata?.group_id;
+      if (groupId) {
+        await supabase
+          .from('habit_group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', notification.recipient_id);
+      }
+    } else if (notification.type === 'bond_request') {
       const bondId = notification.metadata?.bond_id;
       if (bondId) {
         await supabase.from('bonds').delete().eq('id', bondId);
@@ -226,6 +250,25 @@ export default function NotificationsPage() {
                       </p>
 
                       <div className="text-[11px] text-gray-300 mt-0.5">
+                        {item.type === 'duo_challenge_invite' && (
+                          <span className="flex items-center gap-1 text-blue-400 font-medium">
+                            <Target size={13} /> Convidou você para o Desafio Duo:{' '}
+                            <strong className="text-white font-bold">{item.metadata?.title}</strong>
+                            {item.metadata?.deadline_days && ` (${item.metadata.deadline_days} dias)`}
+                          </span>
+                        )}
+                        {item.type === 'duo_challenge_accepted' && (
+                          <span className="flex items-center gap-1 text-green-400 font-medium">
+                            <Check size={13} /> Aceitou seu convite para o Desafio Duo:{' '}
+                            <strong className="text-white font-bold">{item.metadata?.title}</strong>!
+                          </span>
+                        )}
+                        {item.type === 'group_challenge_invite' && (
+                          <span className="flex items-center gap-1 text-orange-400 font-medium">
+                            <Flame size={13} /> Convidou você para o grupo:{' '}
+                            <strong className="text-white font-bold">{item.metadata?.group_name}</strong>
+                          </span>
+                        )}
                         {item.type === 'bond_request' && (
                           <span className="flex items-center gap-1 text-blue-400 font-medium">
                             <Link2 size={13} /> Solicitou vínculo de{' '}
@@ -235,7 +278,7 @@ export default function NotificationsPage() {
                         {item.type === 'bond_accepted' && (
                           <span className="flex items-center gap-1 text-green-400 font-medium">
                             <Users size={13} /> Aceitou seu vínculo de{' '}
-                            <strong>{item.metadata?.subtype || 'Conexão'}</strong> e começou a te seguir!
+                            <strong>{item.metadata?.subtype || 'Conexão'}</strong>!
                           </span>
                         )}
                         {item.type === 'follow_request' && (
@@ -263,7 +306,7 @@ export default function NotificationsPage() {
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-50"
                     >
                       <Check size={14} strokeWidth={2.5} />
-                      <span>{isProcessing ? 'Processando...' : 'Aceitar Vínculo'}</span>
+                      <span>{isProcessing ? 'Processando...' : 'Aceitar Desafio'}</span>
                     </button>
 
                     <button
@@ -280,7 +323,7 @@ export default function NotificationsPage() {
                 {!isPending && item.status === 'accepted' && (
                   <div className="text-right">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
-                      <Check size={11} strokeWidth={3} /> Vínculo Ativo
+                      <Check size={11} strokeWidth={3} /> Desafio Aceito
                     </span>
                   </div>
                 )}
