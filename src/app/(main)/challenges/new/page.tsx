@@ -10,6 +10,7 @@ import {
   Sun, 
   Sunset, 
   Moon, 
+  Clock3,
   Clock, 
   CalendarRange, 
   Calendar,
@@ -52,7 +53,7 @@ export default function NewChallengePage() {
   const [scope, setScope] = useState<HabitScope>('individual');
   const [frequencyType, setFrequencyType] = useState<HabitFrequency>('daily');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  const [period, setPeriod] = useState<HabitPeriod>('morning');
+  const [period, setPeriod] = useState<HabitPeriod>('anytime');
 
   // Tipo de Meta
   const [goalMode, setGoalMode] = useState<GoalMode>('both');
@@ -170,14 +171,12 @@ export default function NewChallengePage() {
         if (group) {
           createdGroupId = group.id;
 
-          // Criador aceito
           await supabase.from('habit_group_members').insert({
             group_id: group.id,
             user_id: user.id,
             status: 'accepted',
           });
 
-          // Membros convidados como pendentes + disparo de notificações
           for (const memberId of selectedGroupMembers) {
             await supabase.from('habit_group_members').insert({
               group_id: group.id,
@@ -202,7 +201,6 @@ export default function NewChallengePage() {
         }
       }
 
-      // Inserção do Desafio
       const { data: habit, error: habitError } = await supabase
         .from('habits')
         .insert({
@@ -215,23 +213,16 @@ export default function NewChallengePage() {
           period,
           frequency_type: frequencyType,
           days_of_week: selectedDays,
-
-          // Status de convite: individual nasce accepted, duo nasce pending
           invite_status: scope === 'duo' ? 'pending' : 'accepted',
-
-          // Datas e Prazos
           start_date: startDate,
           end_date: calculatedEndDate,
           goal_mode: goalMode,
           target_duration_minutes: (goalMode === 'duration' || goalMode === 'both') && duration ? parseInt(duration, 10) : null,
           deadline_days: (goalMode === 'deadline' || goalMode === 'both') && deadlineDays ? parseInt(deadlineDays, 10) : null,
-
-          // Métricas Opcionais
           target_distance_km: hasDistance && distanceKm ? parseFloat(distanceKm) : null,
           target_calories: hasCalories && calories ? parseInt(calories, 10) : null,
           target_weight_kg: hasWeight && weightKg ? parseFloat(weightKg) : null,
           target_height_cm: hasHeight && heightCm ? parseFloat(heightCm) : null,
-
           icon: 'target',
         })
         .select()
@@ -239,7 +230,6 @@ export default function NewChallengePage() {
 
       if (habitError) throw habitError;
 
-      // Se for Duo, disparar a notificação para o parceiro convidado
       if (scope === 'duo' && selectedPartnerId && habit) {
         await supabase.from('notifications').insert({
           recipient_id: selectedPartnerId,
@@ -523,11 +513,12 @@ export default function NewChallengePage() {
           )}
         </div>
 
-        {/* Bloco 5: Período do Dia */}
+        {/* Bloco 5: Período do Dia (Agora com Dia Inteiro) */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[#191c24] p-5 border border-gray-800/60">
           <label className="text-xs font-semibold text-gray-400">Período do Dia</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
+              { id: 'anytime', label: 'Dia Inteiro', icon: Clock3 },
               { id: 'morning', label: 'Manhã', icon: Sun },
               { id: 'afternoon', label: 'Tarde', icon: Sunset },
               { id: 'night', label: 'Noite', icon: Moon },
@@ -540,7 +531,7 @@ export default function NewChallengePage() {
                   type="button"
                   onClick={() => setPeriod(p.id as HabitPeriod)}
                   className={cn(
-                    'flex flex-col items-center gap-1 rounded-2xl p-2.5 text-xs font-semibold transition-all',
+                    'flex flex-col items-center gap-1 rounded-2xl p-2.5 text-[11px] font-semibold transition-all',
                     isSelected ? 'bg-blue-600 text-white' : 'bg-[#232834] text-gray-400'
                   )}
                 >
@@ -559,7 +550,6 @@ export default function NewChallengePage() {
             <p className="text-[11px] text-gray-400 mt-0.5">Ative apenas o que deseja metrificar neste desafio.</p>
           </div>
 
-          {/* Distância */}
           <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -591,7 +581,6 @@ export default function NewChallengePage() {
             )}
           </div>
 
-          {/* Calorias */}
           <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -623,7 +612,6 @@ export default function NewChallengePage() {
             )}
           </div>
 
-          {/* Peso */}
           <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -655,7 +643,6 @@ export default function NewChallengePage() {
             )}
           </div>
 
-          {/* Altura */}
           <div className="rounded-2xl bg-[#232834] p-3.5 border border-gray-800/60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

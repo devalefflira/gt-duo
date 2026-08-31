@@ -29,7 +29,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
-// Mapeamento de ícones do lucide
 const ICON_MAP: Record<string, any> = {
   sparkles: Sparkles,
   flame: Flame,
@@ -81,7 +80,6 @@ export function ProfileAchievementsTab() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 1. Buscar catálogo completo de medalhas
     const { data: allAchievements } = await supabase
       .from('achievements')
       .select('*')
@@ -91,7 +89,6 @@ export function ProfileAchievementsTab() {
       setAchievements(allAchievements);
     }
 
-    // 2. Buscar medalhas já desbloqueadas pelo usuário
     if (user) {
       const { data: userUnlocked } = await supabase
         .from('user_achievements')
@@ -167,13 +164,11 @@ export function ProfileAchievementsTab() {
                   : 'bg-[#161920]/60 border-gray-800/60 opacity-60'
               )}
             >
-              {/* Badge de Recompensa em Moedas */}
               <div className="absolute top-2 right-2 flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1 py-0.5 text-[8px] font-extrabold text-amber-400">
                 <Coins size={8} />
                 <span>+{item.reward_coins}</span>
               </div>
 
-              {/* Ícone */}
               <div
                 className={cn(
                   'mt-2 flex h-12 w-12 items-center justify-center rounded-2xl mb-2 transition-transform group-hover:scale-105',
@@ -197,10 +192,10 @@ export function ProfileAchievementsTab() {
         })}
       </div>
 
-      {/* Modal de Detalhes da Medalha */}
+      {/* Modal Centralizado na Tela */}
       {selectedAchievement && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1e27] p-6 text-white shadow-2xl sm:rounded-3xl border border-gray-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-[#1a1e27] p-6 text-white shadow-2xl border border-gray-800 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-gray-800">
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
                 Detalhes da Medalha
@@ -237,7 +232,6 @@ export function ProfileAchievementsTab() {
                 {selectedAchievement.description}
               </p>
 
-              {/* Informações adicionais */}
               <div className="mt-5 flex w-full items-center justify-around rounded-2xl bg-[#232834] p-3 border border-gray-800">
                 <div>
                   <span className="block text-[10px] font-semibold text-gray-400">Status</span>
@@ -266,7 +260,7 @@ export function ProfileAchievementsTab() {
 
               <button
                 onClick={() => setSelectedAchievement(null)}
-                className="mt-5 w-full rounded-2xl bg-blue-600 py-3 text-xs font-bold text-white hover:bg-blue-500 active:scale-95 transition-all"
+                className="mt-5 w-full rounded-2xl bg-blue-600 py-3.5 text-xs font-bold text-white hover:bg-blue-500 active:scale-95 transition-all"
               >
                 Fechar
               </button>

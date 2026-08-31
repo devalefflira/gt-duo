@@ -80,7 +80,7 @@ function ChallengesDashboardContent() {
         </button>
       </div>
 
-      {/* 3 Abas Principais de Escopo */}
+      {/* 3 Abas de Escopo */}
       <div className="mt-5 flex rounded-2xl bg-[#191c24] p-1 border border-gray-800/80">
         {[
           { id: 'individual', label: 'Individual', icon: User },
@@ -107,7 +107,7 @@ function ChallengesDashboardContent() {
         })}
       </div>
 
-      {/* Carrossel de Dias da Semana */}
+      {/* Carrossel de Dias */}
       <div className="mt-4 flex items-center justify-between rounded-3xl bg-[#191c24] p-2.5 border border-gray-800/60">
         {weekDays.map((day) => {
           const isSelected = format(day, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
@@ -170,7 +170,7 @@ function ChallengesDashboardContent() {
           <div className="flex flex-col items-center justify-center rounded-3xl bg-[#191c24]/50 p-8 text-center border border-gray-800/40">
             <Target size={36} className="text-gray-600 mb-2" />
             <p className="text-xs text-gray-400">
-              Nenhum desafio {activeScope} para o turno da {selectedPeriod === 'morning' ? 'manhã' : selectedPeriod === 'afternoon' ? 'tarde' : 'noite'}.
+              Nenhum desafio {activeScope} para este turno.
             </p>
             <button
               onClick={() => router.push('/challenges/new')}
@@ -218,7 +218,8 @@ function ChallengesDashboardContent() {
                     {habit.title}
                   </h3>
                   <p className="text-[11px] font-medium opacity-80">
-                    {habit.target_duration_minutes ? `0/${habit.target_duration_minutes} min` : 'Meta do dia'}
+                    {habit.target_duration_minutes ? `0/${habit.target_duration_minutes} min` : 'Meta diária'}
+                    {habit.period === 'anytime' && ' • Dia Inteiro'}
                     {habit.scope === 'group' && habit.group_name && ` • ${habit.group_name}`}
                   </p>
                 </div>
