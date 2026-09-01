@@ -8,10 +8,7 @@ import {
   BookOpen, 
   Sparkles, 
   Compass, 
-  CheckCircle2, 
-  Clock, 
-  ChevronRight,
-  BookMarked
+  ChevronRight
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Book } from '@/core/reading/types';
@@ -118,9 +115,10 @@ export default function LibraryPage() {
 
               <button
                 onClick={() => router.push('/reading/books/new')}
-                className="mt-6 rounded-full bg-gradient-to-r from-sky-400 via-teal-400 to-emerald-400 px-6 py-3.5 text-xs font-extrabold text-gray-950 shadow-lg shadow-teal-500/20 active:scale-95 transition-all"
+                className="mt-6 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-400 via-teal-400 to-emerald-400 px-6 py-3.5 text-xs font-black text-gray-950 shadow-lg shadow-teal-500/20 active:scale-95 transition-all"
               >
-                Explorar catálogo completo
+                <Plus size={16} strokeWidth={2.5} />
+                <span>Adicionar livro</span>
               </button>
             </div>
           ) : (
