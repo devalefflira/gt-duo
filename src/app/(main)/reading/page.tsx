@@ -9,9 +9,9 @@ import {
   BookOpen, 
   Clock, 
   ChevronRight, 
-  Sparkles,
-  Compass,
-  Play
+  Play,
+  Library,
+  Home
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
@@ -37,16 +37,14 @@ export default function ReadingDashboardPage() {
 
   // Metas (em minutos)
   const dailyGoalMinutes = 30;
-  const weeklyGoalMinutes = 360; // 6 horas
+  const weeklyGoalMinutes = 360;
 
   const [loading, setLoading] = useState(true);
 
-  // Geração dos dias da semana atual
+  // Dias da semana
   const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Segunda-feira
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  // Simulação/Leitura dos dias com sessão realizada
   const [activeDays, setActiveDays] = useState<number[]>([]);
 
   useEffect(() => {
@@ -87,7 +85,7 @@ export default function ReadingDashboardPage() {
       setActiveBook(current as Book);
     }
 
-    // 3. Sessões de leitura dos últimos 7 dias
+    // 3. Sessões
     const { data: sessions } = await supabase
       .from('reading_sessions')
       .select('*')
@@ -104,15 +102,12 @@ export default function ReadingDashboardPage() {
         const sessionDate = new Date(s.created_at);
         const sDateStr = format(sessionDate, 'yyyy-MM-dd');
 
-        // Minutos de hoje
         if (sDateStr === todayStr) {
           totalToday += s.duration_minutes;
         }
 
-        // Minutos da semana
         totalWeek += s.duration_minutes;
 
-        // Identificar índice do dia da semana (0 = Seg, 6 = Dom)
         weekDays.forEach((wDay, idx) => {
           if (isSameDay(wDay, sessionDate) && !readDaysIndices.includes(idx)) {
             readDaysIndices.push(idx);
@@ -141,7 +136,7 @@ export default function ReadingDashboardPage() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-[#121418] px-5 pt-6 text-white pb-32">
-      {/* 1. Header do Módulo */}
+      {/* 1. Top Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#1e222b] border border-gray-800">
@@ -176,7 +171,6 @@ export default function ReadingDashboardPage() {
             <Settings size={17} />
           </button>
 
-          {/* Saldo de Tokens/GTCoins */}
           <div className="flex items-center gap-1.5 rounded-full bg-[#1e222b] px-3 py-1.5 border border-amber-500/20 text-amber-400 shadow-sm">
             <Coins size={14} className="text-amber-400" />
             <span className="text-xs font-black">{gtCoins}</span>
@@ -184,8 +178,26 @@ export default function ReadingDashboardPage() {
         </div>
       </div>
 
-      {/* 2. Rastreador Semanal Circular */}
-      <div className="mt-5 flex items-center justify-between rounded-3xl bg-[#191c24] px-4 py-3.5 border border-gray-800/60">
+      {/* 2. Seletor de Navegação Rápida (Início vs Biblioteca) */}
+      <div className="mt-4 flex rounded-2xl bg-[#191c24] p-1 border border-gray-800/80">
+        <button
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 via-teal-400 to-emerald-400 py-2.5 text-xs font-black text-gray-950 shadow-md transition-all"
+        >
+          <Home size={14} />
+          <span>Início</span>
+        </button>
+
+        <button
+          onClick={() => router.push('/reading/library')}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-gray-400 hover:text-white transition-all"
+        >
+          <Library size={14} />
+          <span>Biblioteca</span>
+        </button>
+      </div>
+
+      {/* 3. Rastreador Semanal Circular */}
+      <div className="mt-4 flex items-center justify-between rounded-3xl bg-[#191c24] px-4 py-3.5 border border-gray-800/60">
         {weekDays.map((day, idx) => {
           const isCurrentDay = isSameDay(day, today);
           const hasRead = activeDays.includes(idx);
@@ -211,7 +223,7 @@ export default function ReadingDashboardPage() {
         })}
       </div>
 
-      {/* 3. Card Hero Dinâmico */}
+      {/* 4. Card Hero Dinâmico */}
       <div className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-400 via-teal-400 to-sky-500 p-6 text-gray-950 shadow-xl shadow-teal-500/10">
         {activeBook ? (
           <div>
@@ -246,13 +258,13 @@ export default function ReadingDashboardPage() {
               onClick={() => router.push('/reading/library')}
               className="mt-5 w-full rounded-full bg-white py-3.5 text-xs font-extrabold text-teal-900 shadow-md active:scale-98 transition-transform"
             >
-              Explorar catálogo
+              Explorar biblioteca
             </button>
           </div>
         )}
       </div>
 
-      {/* 4. Grade de 3 Cards de Métricas */}
+      {/* 5. Grade de 3 Cards de Métricas (Livros agora é clicável) */}
       <div className="mt-4 grid grid-cols-3 gap-2.5">
         {/* Streak */}
         <div className="flex flex-col items-center justify-center rounded-2xl bg-[#191c24] p-3 text-center border border-gray-800/60 shadow-sm">
@@ -263,14 +275,20 @@ export default function ReadingDashboardPage() {
           <span className="text-[10px] font-bold text-gray-400">Dia</span>
         </div>
 
-        {/* Livros */}
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-[#191c24] p-3 text-center border border-gray-800/60 shadow-sm">
+        {/* Livros (Clicável para Biblioteca) */}
+        <button
+          onClick={() => router.push('/reading/library')}
+          className="flex flex-col items-center justify-center rounded-2xl bg-[#191c24] p-3 text-center border border-teal-500/30 hover:border-teal-400 shadow-sm active:scale-95 transition-all"
+        >
           <div className="flex items-center gap-1.5 mb-1">
             <BookOpen size={16} className="text-teal-400" />
             <span className="text-base font-black text-white">{books.length}</span>
           </div>
-          <span className="text-[10px] font-bold text-gray-400">Livros</span>
-        </div>
+          <span className="text-[10px] font-bold text-teal-400 flex items-center gap-0.5">
+            <span>Livros</span>
+            <ChevronRight size={10} />
+          </span>
+        </button>
 
         {/* Minutos 7 dias */}
         <div className="flex flex-col items-center justify-center rounded-2xl bg-[#191c24] p-3 text-center border border-gray-800/60 shadow-sm">
@@ -282,7 +300,7 @@ export default function ReadingDashboardPage() {
         </div>
       </div>
 
-      {/* 5. Barras de Metas */}
+      {/* 6. Barras de Metas */}
       <div className="mt-4 flex flex-col gap-3">
         {/* Meta Diária */}
         <div className="flex flex-col gap-2 rounded-2xl bg-[#191c24] p-4 border border-gray-800/60">

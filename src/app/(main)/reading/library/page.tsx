@@ -8,7 +8,9 @@ import {
   BookOpen, 
   Sparkles, 
   Compass, 
-  ChevronRight
+  ChevronRight,
+  Home,
+  Library
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Book } from '@/core/reading/types';
@@ -60,9 +62,26 @@ export default function LibraryPage() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#121418] px-5 py-6 text-white pb-32">
-      {/* 1. Header & Título */}
+      {/* 1. Header & Alternador Superior */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black tracking-tight">Biblioteca</h1>
+      </div>
+
+      <div className="mt-4 flex rounded-2xl bg-[#191c24] p-1 border border-gray-800/80">
+        <button
+          onClick={() => router.push('/reading')}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-gray-400 hover:text-white transition-all"
+        >
+          <Home size={14} />
+          <span>Início</span>
+        </button>
+
+        <button
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 via-teal-400 to-emerald-400 py-2.5 text-xs font-black text-gray-950 shadow-md transition-all"
+        >
+          <Library size={14} />
+          <span>Biblioteca</span>
+        </button>
       </div>
 
       {/* 2. Abas de Navegação */}
@@ -94,7 +113,6 @@ export default function LibraryPage() {
       {/* 3. Conteúdo da Aba MEUS LIVROS */}
       {activeTab === 'my_books' && (
         <div className="mt-5 flex flex-col gap-4">
-          {/* Barra de Pesquisa */}
           <div className="relative">
             <Search size={16} className="absolute left-3.5 top-3.5 text-gray-500" />
             <input
@@ -106,7 +124,6 @@ export default function LibraryPage() {
             />
           </div>
 
-          {/* Lista ou Estado Vazio */}
           {loading ? (
             <div className="py-20 text-center text-xs text-gray-500">Carregando sua biblioteca...</div>
           ) : filteredBooks.length === 0 ? (
@@ -129,10 +146,9 @@ export default function LibraryPage() {
                 return (
                   <div
                     key={book.id}
-                    onClick={() => router.push(`/reading/books/${book.id}`)}
+                    onClick={() => router.push(`/reading/session?bookId=${book.id}`)}
                     className="flex items-center gap-3.5 rounded-2xl bg-[#191c24] p-3.5 border border-gray-800/60 hover:bg-[#1e222b] transition-all cursor-pointer active:scale-[0.99]"
                   >
-                    {/* Capa */}
                     <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded-xl bg-[#232834] overflow-hidden border border-gray-800">
                       {book.cover_url ? (
                         <img src={book.cover_url} alt={book.title} className="h-full w-full object-cover" />
@@ -141,7 +157,6 @@ export default function LibraryPage() {
                       )}
                     </div>
 
-                    {/* Dados do Livro */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-xs font-bold text-white truncate">{book.title}</h4>
@@ -152,7 +167,6 @@ export default function LibraryPage() {
 
                       <p className="text-[11px] text-gray-400 truncate">{book.author}</p>
 
-                      {/* Barra de Progresso */}
                       <div className="mt-2 flex items-center gap-2">
                         <div className="h-1 flex-1 rounded-full bg-gray-800 overflow-hidden">
                           <div
@@ -201,7 +215,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* 6. Botão Flutuante (+) para Adicionar Livro */}
+      {/* 6. Botão Flutuante (+) */}
       <button
         onClick={() => router.push('/reading/books/new')}
         className="fixed bottom-24 right-5 flex h-13 w-13 items-center justify-center rounded-full bg-gradient-to-tr from-sky-400 to-emerald-400 text-gray-950 shadow-xl shadow-teal-500/25 active:scale-95 transition-transform z-40"
