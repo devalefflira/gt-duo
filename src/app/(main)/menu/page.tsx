@@ -1,7 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { 
-  LayoutGrid, 
   BookOpen, 
   Film, 
   Music, 
@@ -11,62 +11,164 @@ import {
   MapPin, 
   ShoppingCart, 
   Dumbbell, 
-  UtensilsCrossed, 
-  ThumbsUp, 
-  FolderKanban, 
-  Wallet 
+  UtensilsCrossed,
+  LayoutGrid
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const APP_MODULES = [
-  { name: 'Leituras', icon: BookOpen, desc: 'Livros e metas de leitura' },
-  { name: 'Filmes e Séries', icon: Film, desc: 'O que assistir e diário cinéfilo' },
-  { name: 'Músicas', icon: Music, desc: 'Playlists e faixas favoritas' },
-  { name: 'Podcasts', icon: Mic, desc: 'Episódios e canais recomendados' },
-  { name: 'Espiritualidade', icon: Sparkles, desc: 'Devocional e reflexões' },
-  { name: 'Tarefas', icon: CheckSquare, desc: 'Afazeres e checklist de rotina' },
-  { name: 'Lugares', icon: MapPin, desc: 'Restaurantes, viagens e rolês' },
-  { name: 'Lista de Compras', icon: ShoppingCart, desc: 'Mercado e itens essenciais' },
-  { name: 'Treinos', icon: Dumbbell, desc: 'Fichas, cargas e rotina física' },
-  { name: 'Dietas', icon: UtensilsCrossed, desc: 'Refeições, calorias e cardápios' },
-  { name: 'Indicações', icon: ThumbsUp, desc: 'Dicas compartilhadas de tudo' },
-  { name: 'Projetos', icon: FolderKanban, desc: 'Objetivos e metas de longo prazo' },
-  { name: 'Finanças', icon: Wallet, desc: 'Controle de gastos e orçamentos' },
+interface MenuItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: any;
+  href?: string;
+  isAvailable: boolean;
+}
+
+const MENU_APPS: MenuItem[] = [
+  {
+    id: 'reading',
+    title: 'Leituras',
+    description: 'Livros e metas de leitura',
+    icon: BookOpen,
+    href: '/reading',
+    isAvailable: true,
+  },
+  {
+    id: 'movies',
+    title: 'Filmes e Séries',
+    description: 'O que assistir e diário cinéfilo',
+    icon: Film,
+    isAvailable: false,
+  },
+  {
+    id: 'music',
+    title: 'Músicas',
+    description: 'Playlists e faixas favoritas',
+    icon: Music,
+    isAvailable: false,
+  },
+  {
+    id: 'podcasts',
+    title: 'Podcasts',
+    description: 'Episódios e canais recomendados',
+    icon: Mic,
+    isAvailable: false,
+  },
+  {
+    id: 'spirituality',
+    title: 'Espiritualidade',
+    description: 'Devocional e reflexões',
+    icon: Sparkles,
+    isAvailable: false,
+  },
+  {
+    id: 'tasks',
+    title: 'Tarefas',
+    description: 'Afazeres e checklist de rotina',
+    icon: CheckSquare,
+    isAvailable: false,
+  },
+  {
+    id: 'places',
+    title: 'Lugares',
+    description: 'Restaurantes, viagens e rolês',
+    icon: MapPin,
+    isAvailable: false,
+  },
+  {
+    id: 'shopping',
+    title: 'Lista de Compras',
+    description: 'Mercado e itens essenciais',
+    icon: ShoppingCart,
+    isAvailable: false,
+  },
+  {
+    id: 'workouts',
+    title: 'Treinos',
+    description: 'Fichas, cargas e rotina física',
+    icon: Dumbbell,
+    isAvailable: false,
+  },
+  {
+    id: 'diets',
+    title: 'Dietas',
+    description: 'Refeições, calorias e cardápios',
+    icon: UtensilsCrossed,
+    isAvailable: false,
+  },
 ];
 
-export default function MenuHubPage() {
+export default function MenuPage() {
+  const router = useRouter();
+
+  const handleNavigate = (item: MenuItem) => {
+    if (item.isAvailable && item.href) {
+      router.push(item.href);
+    }
+  };
+
   return (
-    <div className="mx-auto flex max-w-md flex-col px-5 pt-6 text-white">
-      {/* Header */}
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-[#121418] px-5 pt-6 text-white pb-32">
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Apps</h1>
           <p className="text-xs font-semibold text-gray-400">Você no Controle</p>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e222b] text-blue-500">
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#191c24] text-blue-400 border border-gray-800">
           <LayoutGrid size={20} />
         </div>
       </div>
 
-      {/* Grid de Apps */}
-      <div className="mt-6 grid grid-cols-2 gap-3 pb-8">
-        {APP_MODULES.map((item) => {
+      {/* Grid de Aplicativos */}
+      <div className="mt-6 grid grid-cols-2 gap-3.5">
+        {MENU_APPS.map((item) => {
           const Icon = item.icon;
+
           return (
-            <div
-              key={item.name}
-              className="relative flex flex-col justify-between rounded-2xl bg-[#191c24] p-4 border border-gray-800/60 opacity-85 hover:opacity-100 transition-all active:scale-[0.98]"
+            <button
+              key={item.id}
+              onClick={() => handleNavigate(item)}
+              disabled={!item.isAvailable}
+              className={cn(
+                'flex flex-col items-start justify-between rounded-3xl p-4 text-left transition-all border min-h-[140px]',
+                item.isAvailable
+                  ? 'bg-[#191c24] border-gray-800/80 hover:border-emerald-500/40 active:scale-[0.98] shadow-md cursor-pointer'
+                  : 'bg-[#161920]/60 border-gray-800/40 opacity-70 cursor-not-allowed'
+              )}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 mb-3">
+              <div
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center rounded-2xl border',
+                  item.isAvailable
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'bg-[#1e222b] text-blue-400 border-gray-800'
+                )}
+              >
                 <Icon size={20} />
               </div>
-              <div>
-                <h3 className="text-xs font-bold text-white">{item.name}</h3>
-                <p className="mt-0.5 text-[10px] text-gray-400 leading-tight">{item.desc}</p>
+
+              <div className="mt-3">
+                <h3 className="text-xs font-bold text-white">{item.title}</h3>
+                <p className="text-[10px] text-gray-400 leading-tight mt-0.5 line-clamp-1">
+                  {item.description}
+                </p>
               </div>
-              <span className="mt-3 inline-block w-fit rounded-md bg-blue-500/10 px-2 py-0.5 text-[9px] font-bold text-blue-400">
-                Em breve
-              </span>
-            </div>
+
+              <div className="mt-2.5">
+                {item.isAvailable ? (
+                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
+                    Acessar
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-[#1e222b] px-2 py-0.5 text-[9px] font-bold text-gray-500">
+                    Em breve
+                  </span>
+                )}
+              </div>
+            </button>
           );
         })}
       </div>
