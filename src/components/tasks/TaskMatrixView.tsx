@@ -1,76 +1,85 @@
 'use client';
 
-import { useState } from 'react';
 import { Task } from '@/core/tasks/types';
-import { Check, Plus, MoreVertical } from 'lucide-react';
+import { Check, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isToday, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TaskMatrixViewProps {
   tasks: Task[];
   onToggleTask: (task: Task) => void;
-  onAddTaskToQuadrant: (quadrant: 'q1' | 'q2' | 'q3' | 'q4') => void;
 }
 
-export function TaskMatrixView({ tasks, onToggleTask, onAddTaskToQuadrant }: TaskMatrixViewProps) {
+export function TaskMatrixView({ tasks, onToggleTask }: TaskMatrixViewProps) {
+  // Lógica de Separação Automática
+  const classifyTask = (t: Task): 'q1' | 'q2' | 'q3' | 'q4' => {
+    const isUrgentDate = t.due_date ? (isToday(new Date(t.due_date)) || isPast(new Date(t.due_date))) : false;
+    const isHighPriority = t.priority_name === 'urgent' || t.priority_name === 'high';
+
+    if (isHighPriority && isUrgentDate) return 'q1';
+    if (isHighPriority && !isUrgentDate) return 'q2';
+    if (!isHighPriority && isUrgentDate) return 'q3';
+    return 'q4';
+  };
+
   const quadrants = [
     {
       id: 'q1' as const,
       num: 'I',
       title: 'Urgente e Importante',
-      badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-      numBadge: 'bg-rose-500 text-white',
+      subtitle: 'Fazer Agora',
       textColor: 'text-rose-400',
+      numBadge: 'bg-rose-500 text-white',
     },
     {
       id: 'q2' as const,
       num: 'II',
       title: 'Não Urgente e Importante',
-      badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      numBadge: 'bg-amber-500 text-gray-950 font-black',
+      subtitle: 'Planejar',
       textColor: 'text-amber-400',
+      numBadge: 'bg-amber-500 text-gray-950 font-black',
     },
     {
       id: 'q3' as const,
       num: 'III',
-      title: 'Urgente e não importante',
-      badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      numBadge: 'bg-blue-500 text-white',
+      title: 'Urgente e Não Importante',
+      subtitle: 'Delegar / Rápido',
       textColor: 'text-blue-400',
+      numBadge: 'bg-blue-500 text-white',
     },
     {
       id: 'q4' as const,
       num: 'IV',
-      title: 'Não urgente e não importante',
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      numBadge: 'bg-emerald-500 text-gray-950 font-black',
+      title: 'Não Urgente e Não Importante',
+      subtitle: 'Eliminar / Relaxar',
       textColor: 'text-emerald-400',
+      numBadge: 'bg-emerald-500 text-gray-950 font-black',
     },
   ];
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header Fixo da Matriz */}
       <div className="flex items-center justify-between pb-3 px-1">
-        <h2 className="text-base font-bold text-white tracking-tight">Matriz de Eisenhower</h2>
+        <div>
+          <h2 className="text-base font-bold text-white tracking-tight">Matriz de Eisenhower</h2>
+          <p className="text-[10px] text-gray-400">Classificação inteligente baseada em prazo e prioridade</p>
+        </div>
         <button className="text-gray-400 hover:text-white p-1">
           <MoreVertical size={18} />
         </button>
       </div>
 
-      {/* Grid 2x2 dos 4 Quadrantes */}
       <div className="grid grid-cols-2 gap-2 flex-1 pb-16">
         {quadrants.map((q) => {
-          const qTasks = tasks.filter((t) => (t.eisenhower_quadrant || t.priority) === q.id);
+          const qTasks = tasks.filter((t) => classifyTask(t) === q.id);
 
           return (
             <div
               key={q.id}
               className="flex flex-col rounded-3xl bg-[#14161d] p-3 border border-gray-800/80 min-h-[220px]"
             >
-              {/* Header do Quadrante */}
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-800/60">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black', q.numBadge)}>
                     {q.num}
@@ -79,19 +88,12 @@ export function TaskMatrixView({ tasks, onToggleTask, onAddTaskToQuadrant }: Tas
                     {q.title}
                   </span>
                 </div>
-                <button
-                  onClick={() => onAddTaskToQuadrant(q.id)}
-                  className="text-gray-500 hover:text-white p-0.5"
-                >
-                  <Plus size={14} />
-                </button>
               </div>
 
-              {/* Lista de Tarefas do Quadrante */}
               <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto">
                 {qTasks.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center text-center">
-                    <span className="text-[11px] text-gray-600 font-medium">Sem tarefas</span>
+                    <span className="text-[10px] text-gray-600 font-medium">Nenhuma tarefa</span>
                   </div>
                 ) : (
                   qTasks.map((t) => {
@@ -124,7 +126,7 @@ export function TaskMatrixView({ tasks, onToggleTask, onAddTaskToQuadrant }: Tas
                             {t.title}
                           </p>
                           {t.due_date && (
-                            <span className="text-[9px] text-rose-400/90 block mt-0.5 font-semibold">
+                            <span className="text-[9px] text-gray-500 block mt-0.5">
                               {format(new Date(t.due_date), "dd 'de' MMM", { locale: ptBR })}
                             </span>
                           )}

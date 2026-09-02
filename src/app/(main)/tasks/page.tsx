@@ -10,10 +10,13 @@ import {
   Folder, 
   Check, 
   Send, 
-  ChevronLeft
+  ChevronLeft,
+  Award,
+  Lock,
+  Coins
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Task, TaskList } from '@/core/tasks/types';
+import { Task, TaskList, AchievementItem } from '@/core/tasks/types';
 import { TaskBottomNav, TaskTab } from '@/components/tasks/TaskBottomNav';
 import { TaskMatrixView } from '@/components/tasks/TaskMatrixView';
 import { TaskFocusView } from '@/components/tasks/TaskFocusView';
@@ -32,8 +35,10 @@ export default function TasksPage() {
   const [lists, setLists] = useState<TaskList[]>([]);
   const [activeList, setActiveList] = useState<TaskList | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [achievements, setAchievements] = useState<AchievementItem[]>([]);
+  const [gtCoins, setGtCoins] = useState(0);
 
-  // Criação de nova lista no drawer
+  // Nova lista no drawer
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState('');
 
@@ -49,7 +54,15 @@ export default function TasksPage() {
       return;
     }
 
-    // 1. Carrega as listas
+    // Saldo
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('gt_coins')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profile) setGtCoins(profile.gt_coins || 0);
+
+    // Listas
     const { data: userLists } = await supabase
       .from('task_lists')
       .select('*')
@@ -64,7 +77,7 @@ export default function TasksPage() {
       setActiveList(currentInbox);
     }
 
-    // 2. Carrega todas as tarefas ativas do usuário
+    // Tarefas
     const { data: allTasks } = await supabase
       .from('tasks')
       .select('*')
@@ -73,8 +86,33 @@ export default function TasksPage() {
       .order('status', { ascending: true })
       .order('created_at', { ascending: false });
 
-    if (allTasks) {
-      setTasks(allTasks as Task[]);
+    if (allTasks) setTasks(allTasks as Task[]);
+
+    // Medalhas do Módulo Tarefas
+    const { data: catalogAch } = await supabase
+      .from('achievements')
+      .select('*')
+      .eq('category', 'tasks')
+      .order('reward_coins', { ascending: true });
+
+    const { data: userAch } = await supabase
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', user.id);
+
+    const unlockedIds = new Set(userAch?.map((ua) => ua.achievement_id) || []);
+
+    if (catalogAch) {
+      setAchievements(
+        catalogAch.map((a) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          icon: a.icon || 'award',
+          reward_coins: a.reward_coins,
+          unlocked: unlockedIds.has(a.id),
+        }))
+      );
     }
 
     setLoading(false);
@@ -83,7 +121,6 @@ export default function TasksPage() {
   const handleToggleTask = async (task: Task) => {
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
 
-    // Atualização otimista
     setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)));
 
     await supabase
@@ -93,6 +130,13 @@ export default function TasksPage() {
         completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
       })
       .eq('id', task.id);
+
+    // Atualiza o saldo caso tenha ganhado GTCoins
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('gt_coins').eq('id', user.id).maybeSingle();
+      if (profile) setGtCoins(profile.gt_coins || 0);
+    }
   };
 
   const handleCreateList = async () => {
@@ -118,21 +162,20 @@ export default function TasksPage() {
     }
   };
 
-  // Filtra as tarefas exibidas pela lista ativa (ou exibe todas)
   const displayedTasks = activeList
     ? tasks.filter((t) => t.list_id === activeList.id)
     : tasks;
 
   return (
     <div className="relative mx-auto flex min-h-dvh max-w-md flex-col bg-black text-white px-4 pt-3 pb-24">
-      {/* Visualização da Aba 1: Tarefas (Checklist padrão) */}
+      {/* 1. ABA TAREFAS (LISTA PADRÃO) */}
       {activeTab === 'tasks' && (
         <>
           <header className="sticky top-0 z-20 flex items-center justify-between bg-black/90 py-2 backdrop-blur-md">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsDrawerOpen(true)}
-                className="p-1 text-gray-300 hover:text-white transition-colors"
+                className="p-1 text-gray-300 hover:text-white"
               >
                 <Menu size={24} />
               </button>
@@ -142,15 +185,16 @@ export default function TasksPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-full bg-[#1b1e26] px-2.5 py-1 border border-amber-500/20 text-amber-400">
+                <Coins size={13} />
+                <span className="text-[11px] font-black">{gtCoins}</span>
+              </div>
               <button
                 onClick={() => router.push('/menu')}
-                className="p-1 text-gray-400 hover:text-white transition-colors"
+                className="p-1 text-gray-400 hover:text-white"
                 title="Voltar ao Menu"
               >
                 <ChevronLeft size={22} />
-              </button>
-              <button className="p-1 text-gray-400 hover:text-white">
-                <MoreVertical size={20} />
               </button>
             </div>
           </header>
@@ -169,7 +213,7 @@ export default function TasksPage() {
                 </div>
                 <h3 className="text-sm font-bold text-gray-200">Sem tarefas</h3>
                 <p className="mt-1 text-xs text-gray-500 max-w-[200px]">
-                  Capture aqui as tarefas e ideias
+                  Clique no + para adicionar sua primeira tarefa
                 </p>
               </div>
             ) : (
@@ -208,14 +252,16 @@ export default function TasksPage() {
                         </p>
                         {task.due_date && (
                           <span className="text-[10px] text-gray-500">
-                            {format(new Date(task.due_date), "dd 'de' MMM", { locale: ptBR })}
+                            Prazo: {format(new Date(task.due_date), "dd 'de' MMM", { locale: ptBR })}
                           </span>
                         )}
                       </div>
 
-                      <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold border border-gray-700 text-gray-400 uppercase">
-                        {task.priority?.toUpperCase()}
-                      </span>
+                      {task.recurrence && task.recurrence !== 'none' && (
+                        <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+                          Recorrente
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -225,18 +271,15 @@ export default function TasksPage() {
         </>
       )}
 
-      {/* Visualização da Aba 3: Matriz de Eisenhower */}
+      {/* 2. ABA MATRIZ DE EISENHOWER */}
       {activeTab === 'matrix' && (
         <TaskMatrixView
           tasks={tasks}
           onToggleTask={handleToggleTask}
-          onAddTaskToQuadrant={(quadrant) => {
-            router.push(`/tasks/new?quadrant=${quadrant}`);
-          }}
         />
       )}
 
-      {/* Visualização da Aba 4: Modo Foco */}
+      {/* 3. ABA MODO FOCO */}
       {activeTab === 'focus' && (
         <TaskFocusView
           tasks={tasks}
@@ -246,18 +289,63 @@ export default function TasksPage() {
         />
       )}
 
-      {/* Visualização da Aba 2 & 5 (Calendário e Mais) */}
-      {(activeTab === 'calendar' || activeTab === 'more') && (
-        <div className="flex flex-1 flex-col items-center justify-center text-center py-24 text-gray-500">
-          <p className="text-xs">Visualização em sincronização contínua.</p>
+      {/* 4. ABA MEDALHAS */}
+      {activeTab === 'medals' && (
+        <div className="flex flex-col flex-1 pb-16">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-900">
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight">Conquistas de Produtividade</h2>
+              <p className="text-[10px] text-gray-400">Medalhas desbloqueadas com foco e execução</p>
+            </div>
+            <span className="text-xs font-bold text-blue-400">
+              {achievements.filter((a) => a.unlocked).length} / {achievements.length}
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2.5">
+            {achievements.map((ach) => (
+              <div
+                key={ach.id}
+                className={cn(
+                  'flex items-center gap-3.5 rounded-2xl p-3.5 border transition-all',
+                  ach.unlocked
+                    ? 'bg-[#15171e] border-blue-500/40 shadow-sm'
+                    : 'bg-[#121418]/60 border-gray-900 opacity-50'
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border',
+                    ach.unlocked
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                      : 'bg-[#1b1e26] text-gray-600 border-gray-800'
+                  )}
+                >
+                  {ach.unlocked ? <Award size={22} /> : <Lock size={18} />}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white truncate">{ach.title}</h4>
+                    <span className="text-[10px] font-black text-amber-400 flex items-center gap-0.5">
+                      +{ach.reward_coins} GTCoins
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
+                    {ach.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Botão Flutuante (+) para Adicionar Tarefa em Tela Cheia */}
-      {activeTab !== 'focus' && (
+      {/* Botão Flutuante (+) para Criar Tarefa em Tela Cheia */}
+      {activeTab === 'tasks' && (
         <button
           onClick={() => router.push('/tasks/new')}
-          className="fixed bottom-14 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 active:scale-95 transition-transform"
+          className="fixed bottom-16 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 active:scale-95 transition-transform"
         >
           <Plus size={28} strokeWidth={2.5} />
         </button>
@@ -340,7 +428,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Barra de Navegação Inferior Específica de Tarefas */}
+      {/* Barra Inferior do Módulo */}
       <TaskBottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
     </div>
   );

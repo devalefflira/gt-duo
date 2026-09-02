@@ -1,9 +1,9 @@
 'use client';
 
-import { CheckSquare, Calendar, Grid2X2, Target, MoreHorizontal } from 'lucide-react';
+import { CheckSquare, Grid2X2, Target, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type TaskTab = 'tasks' | 'calendar' | 'matrix' | 'focus' | 'more';
+export type TaskTab = 'tasks' | 'matrix' | 'focus' | 'medals';
 
 interface TaskBottomNavProps {
   activeTab: TaskTab;
@@ -13,10 +13,9 @@ interface TaskBottomNavProps {
 export function TaskBottomNav({ activeTab, onChangeTab }: TaskBottomNavProps) {
   const tabs = [
     { id: 'tasks' as TaskTab, label: 'Tarefas', icon: CheckSquare },
-    { id: 'calendar' as TaskTab, label: 'Calendário', icon: Calendar },
     { id: 'matrix' as TaskTab, label: 'Matriz', icon: Grid2X2 },
     { id: 'focus' as TaskTab, label: 'Foco', icon: Target },
-    { id: 'more' as TaskTab, label: 'Mais', icon: MoreHorizontal },
+    { id: 'medals' as TaskTab, label: 'Medalhas', icon: Award },
   ];
 
   return (
@@ -31,11 +30,12 @@ export function TaskBottomNav({ activeTab, onChangeTab }: TaskBottomNavProps) {
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
               className={cn(
-                'flex flex-col items-center justify-center py-1 px-3 transition-colors',
+                'flex flex-col items-center justify-center py-1 px-4 transition-colors',
                 isActive ? 'text-blue-500' : 'text-gray-500 hover:text-gray-300'
               )}
             >
               <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
+              <span className="text-[10px] font-bold mt-0.5">{tab.label}</span>
             </button>
           );
         })}
