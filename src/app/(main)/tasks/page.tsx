@@ -9,13 +9,11 @@ import {
   Inbox, 
   Folder, 
   Check, 
-  X, 
   Send, 
-  Loader2,
   ChevronLeft
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Task, TaskList, TaskPriority } from '@/core/tasks/types';
+import { Task, TaskList } from '@/core/tasks/types';
 import { TaskBottomNav, TaskTab } from '@/components/tasks/TaskBottomNav';
 import { TaskMatrixView } from '@/components/tasks/TaskMatrixView';
 import { TaskFocusView } from '@/components/tasks/TaskFocusView';
@@ -35,13 +33,7 @@ export default function TasksPage() {
   const [activeList, setActiveList] = useState<TaskList | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Criação de Tarefa
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('q4');
-  const [submittingTask, setSubmittingTask] = useState(false);
-
-  // Criação de Lista no Drawer
+  // Criação de nova lista no drawer
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState('');
 
@@ -57,6 +49,7 @@ export default function TasksPage() {
       return;
     }
 
+    // 1. Carrega as listas
     const { data: userLists } = await supabase
       .from('task_lists')
       .select('*')
@@ -71,6 +64,7 @@ export default function TasksPage() {
       setActiveList(currentInbox);
     }
 
+    // 2. Carrega todas as tarefas ativas do usuário
     const { data: allTasks } = await supabase
       .from('tasks')
       .select('*')
@@ -86,42 +80,10 @@ export default function TasksPage() {
     setLoading(false);
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim() || !activeList) return;
-
-    setSubmittingTask(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const isUrgent = newTaskPriority === 'q1' || newTaskPriority === 'q3';
-    const isImportant = newTaskPriority === 'q1' || newTaskPriority === 'q2';
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({
-        user_id: user.id,
-        list_id: activeList.id,
-        title: newTaskTitle.trim(),
-        priority: newTaskPriority,
-        is_urgent: isUrgent,
-        is_important: isImportant,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      setTasks([data as Task, ...tasks]);
-      setNewTaskTitle('');
-      setIsAddingTask(false);
-    }
-    setSubmittingTask(false);
-  };
-
   const handleToggleTask = async (task: Task) => {
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
 
+    // Atualização otimista
     setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)));
 
     await supabase
@@ -156,6 +118,7 @@ export default function TasksPage() {
     }
   };
 
+  // Filtra as tarefas exibidas pela lista ativa (ou exibe todas)
   const displayedTasks = activeList
     ? tasks.filter((t) => t.list_id === activeList.id)
     : tasks;
@@ -268,8 +231,7 @@ export default function TasksPage() {
           tasks={tasks}
           onToggleTask={handleToggleTask}
           onAddTaskToQuadrant={(quadrant) => {
-            setNewTaskPriority(quadrant);
-            setIsAddingTask(true);
+            router.push(`/tasks/new?quadrant=${quadrant}`);
           }}
         />
       )}
@@ -291,79 +253,14 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Botão Flutuante (+) para Adicionar Tarefa */}
+      {/* Botão Flutuante (+) para Adicionar Tarefa em Tela Cheia */}
       {activeTab !== 'focus' && (
         <button
-          onClick={() => setIsAddingTask(true)}
-          className="fixed bottom-16 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 active:scale-95 transition-transform"
+          onClick={() => router.push('/tasks/new')}
+          className="fixed bottom-14 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 active:scale-95 transition-transform"
         >
           <Plus size={28} strokeWidth={2.5} />
         </button>
-      )}
-
-      {/* Modal Inferior de Adicionar Tarefa */}
-      {isAddingTask && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-0">
-          <form
-            onSubmit={handleCreateTask}
-            className="w-full max-w-md rounded-t-3xl bg-[#1a1d24] border-t border-gray-800 p-5 shadow-2xl"
-          >
-            <div className="flex items-center justify-between border-b border-gray-800 pb-2.5 mb-3">
-              <span className="text-xs font-bold text-gray-400">Nova Tarefa</span>
-              <button
-                type="button"
-                onClick={() => setIsAddingTask(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <input
-              type="text"
-              autoFocus
-              placeholder="O que você precisa fazer?"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder-gray-500 py-1"
-            />
-
-            <div className="mt-4 flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-gray-400">Quadrante da Matriz:</span>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { id: 'q1' as TaskPriority, label: 'Q1' },
-                  { id: 'q2' as TaskPriority, label: 'Q2' },
-                  { id: 'q3' as TaskPriority, label: 'Q3' },
-                  { id: 'q4' as TaskPriority, label: 'Q4' },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setNewTaskPriority(p.id)}
-                    className={cn(
-                      'rounded-xl py-2 px-1 text-[10px] font-extrabold transition-all border text-center',
-                      newTaskPriority === p.id
-                        ? 'bg-white text-gray-950 border-white'
-                        : 'bg-[#121418] border-gray-800 text-gray-400'
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submittingTask || !newTaskTitle.trim()}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-xs font-bold text-white shadow-lg shadow-blue-600/30 active:scale-98 transition-all disabled:opacity-50"
-            >
-              {submittingTask ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              <span>Adicionar Tarefa</span>
-            </button>
-          </form>
-        </div>
       )}
 
       {/* Drawer Lateral de Listas */}
@@ -443,7 +340,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Barra de Navegação Inferior */}
+      {/* Barra de Navegação Inferior Específica de Tarefas */}
       <TaskBottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
     </div>
   );
