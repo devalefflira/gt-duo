@@ -67,7 +67,8 @@ const MENU_APPS: MenuItem[] = [
     title: 'Tarefas',
     description: 'Afazeres e checklist de rotina',
     icon: CheckSquare,
-    isAvailable: false,
+    href: '/tasks',
+    isAvailable: true,
   },
   {
     id: 'places',
