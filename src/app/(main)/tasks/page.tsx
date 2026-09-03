@@ -284,7 +284,7 @@ export default function TasksPage() {
                   return (
                     <div
                       key={task.id}
-                      onClick={() => router.push(`/tasks/${task.id}`)}
+                      onClick={() => router.push(`/tasks/detail?id=${task.id}`)}
                       className={cn(
                         'flex flex-col gap-2 rounded-2xl p-3.5 transition-all border cursor-pointer active:scale-[0.99]',
                         isCompleted

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft, 
   Check, 
@@ -12,19 +12,18 @@ import {
   Plus, 
   Trash2, 
   CheckSquare, 
-  Loader2,
   Inbox
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Task, TaskChecklistItem, TaskList, TaskPriorityLevel, TaskRecurrence } from '@/core/tasks/types';
+import { Task, TaskChecklistItem, TaskList } from '@/core/tasks/types';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function TaskDetailPage() {
+function TaskDetailContent() {
   const router = useRouter();
-  const params = useParams();
-  const taskId = params.id as string;
+  const searchParams = useSearchParams();
+  const taskId = searchParams.get('id');
   const supabase = createClient();
 
   const [task, setTask] = useState<Task | null>(null);
@@ -32,7 +31,6 @@ export default function TaskDetailPage() {
   const [checklists, setChecklists] = useState<TaskChecklistItem[]>([]);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (taskId) {
@@ -48,14 +46,12 @@ export default function TaskDetailPage() {
       return;
     }
 
-    // Listas
     const { data: userLists } = await supabase
       .from('task_lists')
       .select('*')
       .eq('user_id', user.id);
     if (userLists) setLists(userLists as TaskList[]);
 
-    // Tarefa
     const { data: taskData } = await supabase
       .from('tasks')
       .select('*')
@@ -66,7 +62,6 @@ export default function TaskDetailPage() {
     if (taskData) {
       setTask(taskData as Task);
 
-      // Checklists vinculados
       const { data: checklistData } = await supabase
         .from('task_checklists')
         .select('*')
@@ -209,7 +204,7 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Metadados / Informações em Pílulas */}
+      {/* Metadados */}
       <div className="mt-4 flex flex-col gap-2.5 rounded-2xl bg-[#14161d] p-4 border border-gray-800/80 text-xs">
         {/* Lista */}
         <div className="flex items-center justify-between py-1 border-b border-gray-800/50">
@@ -263,7 +258,7 @@ export default function TaskDetailPage() {
         )}
       </div>
 
-      {/* Seção Checklists / Subitens */}
+      {/* Checklist */}
       <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-[#14161d] p-4 border border-gray-800/80">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
@@ -277,7 +272,6 @@ export default function TaskDetailPage() {
           )}
         </div>
 
-        {/* Inserir novo item */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -300,7 +294,6 @@ export default function TaskDetailPage() {
           </button>
         </div>
 
-        {/* Lista de Itens do Checklist */}
         <div className="flex flex-col gap-2 mt-1">
           {checklists.map((item) => (
             <div
@@ -340,5 +333,13 @@ export default function TaskDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TaskDetailPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-black text-xs text-gray-500">Carregando...</div>}>
+      <TaskDetailContent />
+    </Suspense>
   );
 }
