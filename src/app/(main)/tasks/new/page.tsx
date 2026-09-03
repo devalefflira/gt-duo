@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Trash2, Calendar, Repeat, Flag, CheckSquare, Loader2 } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Calendar, Repeat, Flag, CheckSquare, Loader2, Folder, Inbox } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { TaskPriorityLevel, TaskRecurrence } from '@/core/tasks/types';
+import { TaskList, TaskPriorityLevel, TaskRecurrence } from '@/core/tasks/types';
 import { cn } from '@/lib/utils';
 
 export default function NewTaskPage() {
@@ -18,11 +18,36 @@ export default function NewTaskPage() {
   const [recurrence, setRecurrence] = useState<TaskRecurrence>('none');
   const [priority, setPriority] = useState<TaskPriorityLevel>('medium');
   
+  // Listas
+  const [lists, setLists] = useState<TaskList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+
   // Checklist
   const [checklistItems, setChecklistItems] = useState<string[]>([]);
   const [currentChecklistInput, setCurrentChecklistInput] = useState('');
-
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadLists();
+  }, []);
+
+  const loadLists = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('task_lists')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('is_inbox', { ascending: false })
+      .order('name', { ascending: true });
+
+    if (data && data.length > 0) {
+      setLists(data as TaskList[]);
+      const inbox = data.find((l) => l.is_inbox) || data[0];
+      setSelectedListId(inbox.id);
+    }
+  };
 
   const handleAddChecklistItem = () => {
     if (!currentChecklistInput.trim()) return;
@@ -42,19 +67,15 @@ export default function NewTaskPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Busca a Caixa de Entrada
-    const { data: inboxList } = await supabase
-      .from('task_lists')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_inbox', true)
-      .maybeSingle();
+    // Identifica se a lista escolhida é a Caixa de Entrada
+    const targetList = lists.find((l) => l.id === selectedListId);
+    const finalTargetListId = (targetList && !targetList.is_inbox) ? targetList.id : null;
 
     const { data: createdTask, error: taskError } = await supabase
       .from('tasks')
       .insert({
         user_id: user.id,
-        list_id: inboxList?.id || null,
+        list_id: finalTargetListId,
         title: title.trim(),
         description: description.trim() || null,
         start_date: startDate || null,
@@ -72,7 +93,6 @@ export default function NewTaskPage() {
       return;
     }
 
-    // Se houver subitens de checklist, insere vinculados
     if (checklistItems.length > 0) {
       const checklistPayload = checklistItems.map((item, idx) => ({
         task_id: createdTask.id,
@@ -81,7 +101,6 @@ export default function NewTaskPage() {
         is_completed: false,
         sort_order: idx,
       }));
-
       await supabase.from('task_checklists').insert(checklistPayload);
     }
 
@@ -106,8 +125,8 @@ export default function NewTaskPage() {
   ];
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-black px-5 py-6 text-white pb-24">
-      {/* Header Fixo */}
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-black px-5 py-6 text-white pb-28">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-800 pb-4">
         <button
           type="button"
@@ -147,7 +166,36 @@ export default function NewTaskPage() {
           />
         </div>
 
-        {/* Datas: Início & Previsão de Finalização */}
+        {/* Seleção de Lista de Destino (Caixa de Entrada Padrão) */}
+        <div className="rounded-2xl bg-[#14161d] p-3.5 border border-gray-800/80">
+          <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5 mb-2.5">
+            <Inbox size={14} className="text-blue-400" />
+            <span>Salvar em:</span>
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {lists.map((l) => {
+              const isSelected = selectedListId === l.id;
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => setSelectedListId(l.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition-all',
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                      : 'bg-[#1b1e26] text-gray-400 border-gray-800 hover:text-white'
+                  )}
+                >
+                  {l.is_inbox ? <Inbox size={13} /> : <Folder size={13} />}
+                  <span>{l.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Datas: Início & Previsão */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-[#14161d] p-3.5 border border-gray-800/80">
             <span className="text-[11px] font-semibold text-gray-400 flex items-center gap-1 mb-1.5">
@@ -226,11 +274,11 @@ export default function NewTaskPage() {
           </div>
         </div>
 
-        {/* Checklists */}
+        {/* Checklist */}
         <div className="rounded-2xl bg-[#14161d] p-3.5 border border-gray-800/80 flex flex-col gap-2.5">
           <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
             <CheckSquare size={14} className="text-blue-400" />
-            <span>Checklist de Subitens</span>
+            <span>Checklist</span>
           </span>
 
           <div className="flex items-center gap-2">
